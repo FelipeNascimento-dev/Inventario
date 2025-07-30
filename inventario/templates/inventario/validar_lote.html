@@ -38,6 +38,11 @@
 
         {% if not is_visualizador_master %}
         <script>
+            const podeDigitar = "{{ pode_digitar|yesno:'true,false' }}" === "true";
+            let buffer = '';
+            let lastInputTime = Date.now();
+            const INTERVALO_MAXIMO = 250;
+
             document.addEventListener("DOMContentLoaded", () => {
                 const input = document.getElementById("codigo");
                 const amostra = JSON.parse(document.getElementById("amostra-data").textContent);
@@ -45,6 +50,85 @@
                 const validadosSet = new Set();
                 let validados = 0;
 
+                if (!podeDigitar) {
+                    input.setAttribute('readonly', 'readonly');
+                    input.setAttribute('autocomplete', 'off');
+                    input.value = '';
+
+                    ['paste', 'drop', 'contextmenu', 'copy', 'cut', 'input'].forEach(evt =>
+                        input.addEventListener(evt, e => e.preventDefault())
+                    );
+
+                    input.addEventListener('keydown', e => {
+                        const now = Date.now();
+
+                        if (now - lastInputTime > INTERVALO_MAXIMO) {
+                            buffer = '';
+                        }
+
+                        lastInputTime = now;
+
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+
+                            const codigo = buffer.trim().toUpperCase();
+                            buffer = '';
+
+                            if (codigo.length > 0 && !validadosSet.has(codigo)) {
+                                input.removeAttribute('readonly');
+                                input.value = codigo;
+                                input.setAttribute('readonly', 'readonly');
+
+                                fetch(`/inventario/lote/${loteId}/validar/serial/`, {
+                                    method: "POST",
+                                    headers: {
+                                        "Content-Type": "application/x-www-form-urlencoded",
+                                        "X-CSRFToken": "{{ csrf_token }}"
+                                    },
+                                    body: `codigo=${encodeURIComponent(codigo)}`
+                                })
+                                    .then(res => res.json())
+                                    .then(data => {
+                                        if (data.status === "erro") {
+                                            alert(data.mensagem);
+                                            if (data.redirect_url) {
+                                                window.location.href = data.redirect_url;
+                                            }
+                                        } else {
+                                            validadosSet.add(codigo);
+                                            validados += 1;
+                                            document.getElementById("validados").innerText = validados;
+
+                                            if (validados >= amostra) {
+                                                fetch(`/inventario/lote/${loteId}/fechar/`, {
+                                                    method: "POST",
+                                                    headers: {
+                                                        "X-CSRFToken": "{{ csrf_token }}"
+                                                    }
+                                                })
+                                                    .then(res => res.json())
+                                                    .then(data => {
+                                                        if (data.status === "ok") {
+                                                            window.location.href = "/inventario";
+                                                        } else {
+                                                            alert(data.mensagem);
+                                                        }
+                                                    });
+                                            }
+                                        }
+                                    });
+                            }
+                        } else if (e.key.length === 1) {
+                            buffer += e.key;
+                        }
+
+                        e.preventDefault();
+                    });
+
+                    return;
+                }
+
+                // Usuário pode digitar normalmente
                 input.focus();
 
                 input.addEventListener("keydown", (e) => {
@@ -110,6 +194,7 @@
                 );
             });
         </script>
+
 
         {% endif %}
 

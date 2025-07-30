@@ -47,11 +47,15 @@ def validar_lote_view(request, lote_id):
     seriais = lote.bipagem.all()
     total_seriais = seriais.count()
     amostra_necessaria = math.ceil(total_seriais * 0.10)
+    grupos_usuario = request.user.groups.values_list('name', flat=True)
+    pode_digitar = any(grupo in PAs_COM_PERMISSAO_DIGITACAO for grupo in grupos_usuario)
+
 
     context = {
         "lote": lote,
         "total_seriais": total_seriais,
         "amostra_necessaria": amostra_necessaria,
+        "pode_digitar": pode_digitar,
     }
 
     return render(request, "inventario/validar_lote.html", context)
