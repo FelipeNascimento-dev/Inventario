@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django import forms
-from .models import LoteBipagem, PontoAtendimentoInfo
+from .models import LoteBipagem, PontoAtendimentoInfo, ExtracaoDiariaAuditoria
 
 class PontoAtendimentoInfoAdminForm(forms.ModelForm):
     limite_opcoes = [
@@ -23,6 +23,13 @@ class PontoAtendimentoInfoAdmin(admin.ModelAdmin):
     list_display = ('group', 'endereco', 'limite', 'liberado')
     list_editable = ('liberado',)
     search_fields = ('group__name', 'endereco')
+
+@admin.register(ExtracaoDiariaAuditoria)
+class ExtracaoDiariaAuditoriaAdmin(admin.ModelAdmin):
+    list_display = ('group', 'data_referencia', 'total_seriais', 'gerado_em')
+    list_filter = ('data_referencia',)
+    search_fields = ('group__name',)
+    readonly_fields = ('gerado_em',)
 
 @admin.register(LoteBipagem)
 class LoteBipagemAdmin(admin.ModelAdmin):

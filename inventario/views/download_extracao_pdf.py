@@ -1,27 +1,41 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.template.loader import get_template
-from django.http import HttpResponse
-from xhtml2pdf import pisa
-from django.db.models import Count
+from django.http import HttpResponse, HttpResponseForbidden, FileResponse
 from django.utils.dateparse import parse_date
-from inventario.models import LoteBipagem, Bipagem
-from inventario.forms.bipagem_forms import BipagemForm
-from datetime import datetime
+from inventario.models import LoteBipagem, Bipagem, ExtracaoDiariaAuditoria
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import Group
 from django.contrib import messages
 import csv
+from xhtml2pdf import pisa
+
+from inventario.services.extracao_service import (
+    build_extracao_context,
+    get_extracao_dados,
+    grupos_pa_usuario,
+    is_usuario_auditoria_extracao,
+    is_usuario_ger_total,
+    pode_acessar_extracao_agendada,
+    resolver_pa_auditoria,
+    usuario_pode_baixar_extracao_agendada,
+    GRUPOS_ESPECIAIS,
+)
+from inventario.services.extracao_auditoria_service import (
+    listar_extracoes_auditoria,
+    horario_extracao_auditoria_label,
+    aguardando_horario_extracao_hoje,
+)
 
 
 def _is_usuario_auditoria_extracao(user):
-    return user.username.startswith('Auditoria_')
+    return is_usuario_auditoria_extracao(user)
 
 
-_GRUPOS_ESPECIAIS = ["INV_PA_GER_TOTAL", "INV_PA_VISUALIZADOR_MASTER"]
+_GRUPOS_ESPECIAIS = GRUPOS_ESPECIAIS
 
 
 def _grupos_pa_usuario(user):
-    return user.groups.exclude(name__in=_GRUPOS_ESPECIAIS)
+    return grupos_pa_usuario(user)
 
 
 def _pas_permitidas_auditoria(user):
@@ -29,130 +43,16 @@ def _pas_permitidas_auditoria(user):
 
 
 def _resolver_pa_auditoria(user, pa_param):
-    pas = _pas_permitidas_auditoria(user)
-    if pa_param and pa_param.upper() != "TODAS" and pa_param in pas:
-        return pa_param
-    return pas[0] if pas else None
-
-
-def _filtro_data(data_convertida):
-    if data_convertida:
-        return {"criado_em__date": data_convertida}
-    return {}
+    return resolver_pa_auditoria(user, pa_param)
 
 
 def _get_extracao_dados(user, grupos, pa_param, data_convertida):
-    is_admin_total = 'INV_PA_GER_TOTAL' in grupos
-    filtro_data = _filtro_data(data_convertida)
-    pa_todas = pa_param and pa_param.upper() == "TODAS"
-
-    if is_admin_total and pa_param and not pa_todas:
-        bipagens = Bipagem.objects.filter(
-            id_caixa__lote__group_user__name=pa_param,
-            **filtro_data,
-        )
-        lotes = LoteBipagem.objects.filter(group_user__name=pa_param)
-        nome_pa = pa_param
-        grupo = Group.objects.filter(name=pa_param).first()
-        endereco_pa = getattr(grupo.informacoes, "endereco", "Não informado") if grupo else "Não informado"
-
-    elif is_admin_total and (pa_todas or not pa_param):
-        bipagens = Bipagem.objects.filter(**filtro_data)
-        lotes = LoteBipagem.objects.all()
-        nome_pa = "TODAS AS PAs"
-        endereco_pa = "Consolidado Geral"
-
-    elif _is_usuario_auditoria_extracao(user):
-        pa_resolvida = _resolver_pa_auditoria(user, pa_param)
-        grupo = Group.objects.filter(name=pa_resolvida).first() if pa_resolvida else None
-        nome_pa = pa_resolvida or "PA Não vinculada"
-        endereco_pa = getattr(grupo.informacoes, "endereco", "Não informado") if grupo else "Não informado"
-        if pa_resolvida:
-            bipagens = Bipagem.objects.filter(
-                id_caixa__lote__group_user__name=pa_resolvida,
-                **filtro_data,
-            )
-            lotes = LoteBipagem.objects.filter(group_user__name=pa_resolvida)
-        else:
-            bipagens = Bipagem.objects.none()
-            lotes = LoteBipagem.objects.none()
-
-    else:
-        grupo = user.groups.first()
-        nome_pa = grupo.name if grupo else "PA Não vinculada"
-        endereco_pa = getattr(grupo.informacoes, "endereco", "Não informado") if grupo else "Não informado"
-        bipagens = Bipagem.objects.filter(id_caixa__lote__user_created=user, **filtro_data)
-        lotes = LoteBipagem.objects.filter(user_created=user)
-
-    return {
-        'nome_pa': nome_pa,
-        'endereco_pa': endereco_pa,
-        'bipagens': bipagens,
-        'total_lotes': lotes.count(),
-        'total_caixas': bipagens.values('id_caixa').distinct().count(),
-        'total_seriais': bipagens.count(),
-    }
-
-
-def _contagem_por_status(bipagens_qs):
-    raw = bipagens_qs.values('estado').annotate(total=Count('id'))
-    contagens = {}
-    sem_status = 0
-
-    for row in raw:
-        estado = row['estado']
-        if estado:
-            contagens[estado] = contagens.get(estado, 0) + row['total']
-        else:
-            sem_status += row['total']
-
-    tipos = []
-    codigos_conhecidos = set()
-
-    for codigo, label in BipagemForm.ESTADO_CHOICES:
-        if not codigo:
-            continue
-        codigos_conhecidos.add(codigo)
-        tipos.append({'estado': label, 'total': contagens.get(codigo, 0)})
-
-    for estado, total in sorted(contagens.items()):
-        if estado not in codigos_conhecidos:
-            tipos.append({'estado': estado, 'total': total})
-
-    if sem_status:
-        tipos.append({'estado': 'Sem status', 'total': sem_status})
-
-    return tipos
+    return get_extracao_dados(user, grupos, pa_param, data_convertida)
 
 
 def _build_extracao_context(user, pa_param, data_param):
-    data_convertida = parse_date(data_param) if data_param else None
-    dados = _get_extracao_dados(
-        user,
-        user.groups.values_list('name', flat=True),
-        pa_param,
-        data_convertida,
-    )
-    data_param_br = data_convertida.strftime('%d/%m/%Y') if data_convertida else None
-
-    return {
-        "empresa": "Getnet",
-        "cnpj": "12.345.678/0001-99",
-        "responsavel": user.get_full_name() or user.username,
-        "nome_pa": dados['nome_pa'],
-        "endereco_pa": dados['endereco_pa'],
-        "data_emissao": datetime.now().strftime('%d/%m/%Y'),
-        "data_filtro": data_param_br or "Todas",
-        "resumo_pa": [{
-            "lote": dados['total_lotes'],
-            "caixas": dados['total_caixas'],
-            "seriais": dados['total_seriais'],
-        }],
-        "total_lotes": dados['total_lotes'],
-        "total_caixas": dados['total_caixas'],
-        "total_seriais": dados['total_seriais'],
-        "tipos_equipamento": _contagem_por_status(dados['bipagens']),
-    }, dados['total_seriais']
+    context, total_seriais, _ = build_extracao_context(user, pa_param, data_param)
+    return context, total_seriais
 
 
 @login_required(login_url='inventario:login')
@@ -186,6 +86,8 @@ def relatorios_view(request):
     is_admin = username in usuarios_admins
 
     is_auditoria_extracao = _is_usuario_auditoria_extracao(user)
+    is_ger_total = is_usuario_ger_total(user)
+    mostrar_extracoes_agendadas = pode_acessar_extracao_agendada(user)
 
     if is_auditoria_extracao:
         grupos = _grupos_pa_usuario(user)
@@ -283,12 +185,23 @@ def relatorios_view(request):
             messages.success(request, f"{quantidade} seriais inseridos no novo lote {proximo_numero_lote}.")
             return redirect(f"{request.path_info}?pa={pa_selecionada}")
 
+    extracoes_diarias = []
+    if mostrar_extracoes_agendadas:
+        extracoes_diarias = listar_extracoes_auditoria(user)
+
     return render(request, 'inventario/relatorios.html', {
         'grupos': grupos,
         'dados_pa': dados_pa,
         'pa_selecionada': pa_selecionada,
         'data_selecionada': data_selecionada,
         'is_auditoria_extracao': is_auditoria_extracao,
+        'is_ger_total': is_ger_total,
+        'mostrar_extracoes_agendadas': mostrar_extracoes_agendadas,
+        'extracoes_diarias': extracoes_diarias,
+        'horario_extracao': horario_extracao_auditoria_label(),
+        'aguardando_horario_extracao': (
+            mostrar_extracoes_agendadas and aguardando_horario_extracao_hoje()
+        ),
     })
 
 
@@ -346,3 +259,21 @@ def download_extracao_csv(request):
     if pisa_status.err:
         return HttpResponse('Erro ao gerar PDF', status=500)
     return response
+
+
+@login_required(login_url='inventario:login')
+def download_extracao_agendada(request, pk):
+    extracao = get_object_or_404(ExtracaoDiariaAuditoria, pk=pk)
+
+    if not usuario_pode_baixar_extracao_agendada(request.user, extracao):
+        return HttpResponseForbidden("Você não tem permissão para baixar esta extração.")
+
+    if not extracao.arquivo_csv:
+        return HttpResponse("Arquivo não encontrado.", status=404)
+
+    return FileResponse(
+        extracao.arquivo_csv.open('rb'),
+        as_attachment=True,
+        filename=extracao.arquivo_csv.name.split('/')[-1],
+        content_type='text/csv',
+    )

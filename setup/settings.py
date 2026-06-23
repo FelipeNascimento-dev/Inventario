@@ -128,6 +128,9 @@ LOGOUT_REDIRECT_URL = '/login/'
 # URL base da API FastAPI de inventário (sobrescrever em local_settings.py)
 INVENTARIO_API_BASE_URL = 'http://127.0.0.1/inventario-api'
 
+# Extração diária de auditoria — horário em America/Sao_Paulo (hora, minuto)
+EXTRACAO_AUDITORIA_HORARIO = (17, 30)
+
 try:
     from setup.local_settings import *
 except ImportError:

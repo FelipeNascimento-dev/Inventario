@@ -61,10 +61,57 @@
                 <div class="button-group">
                     <button type="button" class="bipagem-button" onclick="definirAcaoEEnviar('visualizar')">Consultar</button>
                     <button type="button" class="bipagem-button" onclick="definirAcaoEEnviar('pdf')">Extrair PDF</button>
-                    <button type="button" class="bipagem-button" onclick="definirAcaoEEnviar('csv')">Extrair CSV</button>
                 </div>
             </form>
         </div>
+
+{% if mostrar_extracoes_agendadas %}
+        <div class="extracoes-agendadas-card">
+            <h3>Extrações CSV Diárias Automáticas ({{ horario_extracao }})</h3>
+            <p class="extracoes-agendadas-desc">
+                {% if is_ger_total %}
+                Arquivos CSV gerados automaticamente para todas as PAs.
+                {% else %}
+                Arquivos CSV gerados automaticamente para as PAs vinculadas ao seu usuário.
+                {% endif %}
+            </p>
+
+            {% if aguardando_horario_extracao %}
+            <p class="extracoes-agendadas-aviso">
+                As extrações de hoje estarão disponíveis após {{ horario_extracao }}.
+            </p>
+            {% endif %}
+
+            {% if extracoes_diarias %}
+            <div class="scroll-tabela-lotes">
+                <table class="tabela-lotes tabela-extracoes-agendadas">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>PA</th>
+                            <th>Total Seriais</th>
+                            <th>CSV</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ext in extracoes_diarias %}
+                        <tr>
+                            <td>{{ ext.data_referencia|date:"d/m/Y" }}</td>
+                            <td>{{ ext.group.name }}</td>
+                            <td>{{ ext.total_seriais }}</td>
+                            <td>
+                                <a class="link-download" href="{% url 'inventario:download_extracao_agendada' ext.pk %}">Baixar CSV</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% elif not aguardando_horario_extracao %}
+            <p class="extracoes-agendadas-vazio">Nenhuma extração automática disponível ainda.</p>
+            {% endif %}
+        </div>
+        {% endif %}
 
         {% if dados_pa %}
         <div class="scroll-tabela-lotes">

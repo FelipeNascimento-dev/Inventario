@@ -6,7 +6,7 @@ iniciar_caixa_redirect, bipagem, validar_lote_view, validar_serial, finalizar_lo
 acompanhamento_dash, acompanhamento_api_lotes, acompanhamento_api_resumo, \
 acompanhamento_api_quantidades, acompanhamento_api_contagem_usuario, \
 acompanhamento_api_lote_detalhe, download_extracao_pdf, editar_serial, excluir_serial, \
-relatorios_view, download_extracao_csv
+relatorios_view, download_extracao_csv, download_extracao_agendada
 
 
 app_name = 'inventario'
@@ -35,4 +35,5 @@ urlpatterns = [
     path('serial/<int:serial_id>/excluir/', excluir_serial, name='excluir_serial'),
     path('relatorios/', relatorios_view, name='relatorios'),
     path('extracao/', download_extracao_csv, name='download_extracao_csv'),
+    path('extracao-agendada/<int:pk>/', download_extracao_agendada, name='download_extracao_agendada'),
 ]

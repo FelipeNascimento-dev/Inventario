@@ -132,3 +132,55 @@
     border-bottom: 1px solid var(--color-border);
     padding-bottom: 8px;
 }
+
+.extracoes-agendadas-card {
+    background-color: var(--color-bg-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 24px;
+    box-shadow: var(--shadow-sm);
+    margin-top: 30px;
+}
+
+.extracoes-agendadas-card h3 {
+    margin: 0 0 8px;
+    color: var(--color-text-heading);
+    font-size: 18px;
+}
+
+.extracoes-agendadas-desc {
+    margin: 0 0 16px;
+    color: var(--color-text-muted, #666);
+    font-size: 14px;
+}
+
+.extracoes-agendadas-vazio {
+    margin: 0;
+    color: var(--color-text-muted, #666);
+    font-style: italic;
+}
+
+.extracoes-agendadas-aviso {
+    margin: 0 0 16px;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    background-color: var(--color-bg-input);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-heading);
+    font-size: 14px;
+}
+
+.tabela-extracoes-agendadas {
+    width: 100%;
+}
+
+.link-download {
+    color: var(--color-primary);
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.link-download:hover {
+    text-decoration: underline;
+}
+

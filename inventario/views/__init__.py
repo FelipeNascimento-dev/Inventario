@@ -16,4 +16,9 @@ from .acompanhamento_view import (
     acompanhamento_api_contagem_usuario,
     acompanhamento_api_lote_detalhe,
 )
-from .download_extracao_pdf import download_extracao_pdf, relatorios_view, download_extracao_csv
+from .download_extracao_pdf import (
+    download_extracao_pdf,
+    relatorios_view,
+    download_extracao_csv,
+    download_extracao_agendada,
+)

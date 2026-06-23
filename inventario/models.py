@@ -74,6 +74,32 @@ class PontoAtendimentoInfo(models.Model):
     def __str__(self):
         return f"{self.group.name} - {self.endereco}"
     
+def _extracao_diaria_upload_to(instance, filename):
+    return f"extracoes_auditoria/{instance.data_referencia:%Y/%m/%d}/{instance.group.name}/{filename}"
+
+
+class ExtracaoDiariaAuditoria(models.Model):
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="extracoes_diarias")
+    data_referencia = models.DateField(verbose_name="Data de referência")
+    arquivo_csv = models.FileField(upload_to=_extracao_diaria_upload_to)
+    total_seriais = models.PositiveIntegerField(default=0)
+    gerado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Extração diária de auditoria"
+        verbose_name_plural = "Extrações diárias de auditoria"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["group", "data_referencia"],
+                name="uniq_extracao_diaria_por_pa_data",
+            ),
+        ]
+        ordering = ["-data_referencia", "group__name"]
+
+    def __str__(self):
+        return f"{self.group.name} - {self.data_referencia:%d/%m/%Y}"
+
+
 class InventarioDadosImportados(models.Model):
     serial = models.CharField(max_length=100, primary_key=True)
     modelo = models.CharField(max_length=200)
