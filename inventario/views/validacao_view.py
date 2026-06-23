@@ -3,7 +3,8 @@ from django.http import JsonResponse, HttpResponseForbidden
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
-from ..models import Caixa, LoteBipagem, Bipagem
+from ..models import Caixa, LoteBipagem
+from ..services.bipagem_service import normalizar_serial
 from django.urls import reverse
 from django.db import models
 from django.db.models import Count
@@ -32,9 +33,10 @@ def validar_lote_view(request, lote_id):
     else:
         return redirect('inventario:index')
 
-    seriais = lote.bipagem.all()
-    total_seriais = seriais.count()
+    total_seriais = lote.bipagem.count()
     amostra_necessaria = math.ceil(total_seriais * 0.10)
+    request.session[f'validacao_total_lote_{lote.id}'] = amostra_necessaria
+    request.session[f'seriais_validados_lote_{lote.id}'] = []
     grupos_usuario = request.user.groups.values_list('name', flat=True)
     pode_digitar = any(grupo in PAs_COM_PERMISSAO_DIGITACAO for grupo in grupos_usuario)
 
@@ -63,42 +65,57 @@ def validar_serial(request, lote_id):
                 "mensagem": " Você não tem permissão para validar seriais."
             })
 
-        codigo = request.POST.get("codigo", "").strip().upper()[-18:]
+        codigo = normalizar_serial(request.POST.get('codigo', ''))
+        if not codigo:
+            return JsonResponse({'status': 'erro', 'mensagem': 'Código inválido.'}, status=400)
+
         serial_valido = lote.bipagem.filter(nrserie=codigo).exists()
 
         if not serial_valido:
-            lote.status = "invalidado"
-            lote.save()
+            lote.status = 'invalidado'
+            lote.save(update_fields=['status'])
+            request.session.pop(f'seriais_validados_lote_{lote.id}', None)
+            request.session.pop(f'validacao_total_lote_{lote.id}', None)
             return JsonResponse({
-                "status": "erro",
-                "mensagem": f"Serial {codigo} inválido. Lote cancelado.",
-                "redirect_url": reverse('inventario:index')
+                'status': 'erro',
+                'mensagem': f'Serial {codigo} inválido. Lote cancelado.',
+                'redirect_url': reverse('inventario:index'),
             })
 
-        validos = request.session.get(f"seriais_validados_lote_{lote.id}", [])
+        session_validos_key = f'seriais_validados_lote_{lote.id}'
+        session_total_key = f'validacao_total_lote_{lote.id}'
+        validos = request.session.get(session_validos_key, [])
         if codigo not in validos:
             validos.append(codigo)
-            request.session[f"seriais_validados_lote_{lote.id}"] = validos
+            request.session[session_validos_key] = validos
 
-        total_necessario = math.ceil(lote.bipagem.count() * 0.10)
+        total_necessario = request.session.get(session_total_key)
+        if total_necessario is None:
+            total_necessario = math.ceil(lote.bipagem.count() * 0.10)
+            request.session[session_total_key] = total_necessario
 
         if len(validos) >= total_necessario:
-            lote.status = "fechado"
-            lote.save()
-            request.session.pop(f"seriais_validados_lote_{lote.id}", None)
+            lote.status = 'fechado'
+            lote.save(update_fields=['status'])
+            request.session.pop(session_validos_key, None)
+            request.session.pop(session_total_key, None)
 
-            add_message(request, SUCCESS, "Lote validado com sucesso!", extra_tags='lote_validado')
+            add_message(request, SUCCESS, 'Lote validado com sucesso!', extra_tags='lote_validado')
             return JsonResponse({
-                "status": "ok",
-                "mensagem": "Lote validado com sucesso!",
-                "popup": True,
-                "redirect_url": reverse('inventario:validar_lote', args=[lote.id])
+                'status': 'ok',
+                'mensagem': 'Lote validado com sucesso!',
+                'lote_finalizado': True,
+                'validados': len(validos),
+                'total_necessario': total_necessario,
+                'redirect_url': reverse('inventario:index'),
             })
-        else:
-            return JsonResponse({
-                "status": "ok",
-                "mensagem": f"Serial {codigo} validado com sucesso! ({len(validos)}/{total_necessario})"
-            })
+
+        return JsonResponse({
+            'status': 'ok',
+            'mensagem': f'Serial {codigo} validado com sucesso! ({len(validos)}/{total_necessario})',
+            'validados': len(validos),
+            'total_necessario': total_necessario,
+        })
 
     return JsonResponse({"status": "erro", "mensagem": "Método não permitido"}, status=405)
 

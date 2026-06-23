@@ -96,26 +96,15 @@
                                             }
                                         } else {
                                             validadosSet.add(codigo);
-                                            validados += 1;
+                                            validados = data.validados ?? validados + 1;
                                             document.getElementById("validados").innerText = validados;
 
-                                            if (validados >= amostra) {
-                                                fetch(`/inventario/lote/${loteId}/fechar/`, {
-                                                    method: "POST",
-                                                    headers: {
-                                                        "X-CSRFToken": "{{ csrf_token }}"
-                                                    }
-                                                })
-                                                    .then(res => res.json())
-                                                    .then(data => {
-                                                        if (data.status === "ok") {
-                                                            window.location.href = "/inventario";
-                                                        } else {
-                                                            alert(data.mensagem);
-                                                        }
-                                                    });
+                                            if (data.lote_finalizado && data.redirect_url) {
+                                                window.location.href = data.redirect_url;
                                             }
                                         }
+                                        input.value = "";
+                                        input.setAttribute('readonly', 'readonly');
                                     });
                             }
                         } else if (e.key.length === 1) {
@@ -157,24 +146,11 @@
                                     }
                                 } else {
                                     validadosSet.add(codigo);
-                                    validados += 1;
+                                    validados = data.validados ?? validados + 1;
                                     document.getElementById("validados").innerText = validados;
 
-                                    if (validados >= amostra) {
-                                        fetch(`/inventario/lote/${loteId}/fechar/`, {
-                                            method: "POST",
-                                            headers: {
-                                                "X-CSRFToken": "{{ csrf_token }}"
-                                            }
-                                        })
-                                            .then(res => res.json())
-                                            .then(data => {
-                                                if (data.status === "ok") {
-                                                    window.location.href = "/inventario";
-                                                } else {
-                                                    alert(data.mensagem);
-                                                }
-                                            });
+                                    if (data.lote_finalizado && data.redirect_url) {
+                                        window.location.href = data.redirect_url;
                                     }
                                 }
                             });

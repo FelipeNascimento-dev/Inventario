@@ -2,7 +2,7 @@ from .views import UserLoginView
 from .views import RegisterView
 from django.urls import path
 from .views import index, logout_confirm_view, logout_view, criar_lote_view, lote, \
-iniciar_caixa_redirect, bipagem, validar_lote_view, validar_serial, finalizar_lote_view, \
+iniciar_caixa_redirect, bipagem, inserir_serial_ajax, validar_lote_view, validar_serial, finalizar_lote_view, \
 acompanhamento_dash, acompanhamento_api_lotes, acompanhamento_api_resumo, \
 acompanhamento_api_quantidades, acompanhamento_api_contagem_usuario, \
 acompanhamento_api_lote_detalhe, download_extracao_pdf, editar_serial, excluir_serial, \
@@ -21,6 +21,7 @@ urlpatterns = [
     path('lote/<int:lote_id>/', lote, name='lote'),
     path('lote/<int:lote_id>/caixas/', iniciar_caixa_redirect, name='iniciar_caixa'),
     path('lote/<int:lote_id>/caixas/<int:caixa_id>/', bipagem, name='caixa'),
+    path('lote/<int:lote_id>/caixas/<int:caixa_id>/inserir/', inserir_serial_ajax, name='inserir_serial'),
     path('lote/<int:lote_id>/validar/', validar_lote_view, name='validar_lote'),
     path('lote/<int:lote_id>/validar/serial/', validar_serial, name='validar_serial'),
     path('lote/<int:lote_id>/fechar/', finalizar_lote_view, name='fechar_lote'),

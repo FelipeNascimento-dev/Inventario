@@ -47,7 +47,7 @@
                         {% endif %}
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="bipagem-tbody">
                     {% for item in page_obj %}
                     <tr>
                         <td>#{{ item.id_caixa.nr_caixa }}</td>
@@ -131,6 +131,13 @@
     const modoSelecaoModelo = JSON.parse("{{ modo_selecao_modelo|yesno:'true,false'|lower }}");
     const modoBipagem = JSON.parse("{{ modo_bipagem|yesno:'true,false'|lower }}");
     const podeDigitar = JSON.parse("{{ pode_digitar|yesno:'true,false'|lower }}");
+    const isGerentePa = JSON.parse("{{ is_gerente_pa|yesno:'true,false'|lower }}");
+    const isVisualizadorMaster = JSON.parse("{{ is_visualizador_master|yesno:'true,false'|lower }}");
+    const caixaFinalizada = {% if caixa.status == 'Finalizada' %}true{% else %}false{% endif %};
+    const inserirSerialUrl = "{% url 'inventario:inserir_serial' lote.id caixa.id %}";
+    const csrfToken = "{{ csrf_token }}";
+    const loteId = {{ lote.id }};
+    const caixaId = {{ caixa.id }};
 
     function nomeBotaoSubmit(submitter) {
         if (submitter && submitter.name) {
@@ -172,6 +179,77 @@
         if (trocarBtn) {
             trocarBtn.disabled = true;
         }
+    }
+
+    function unlockBipagemForm(serialInput, inserirBtn, trocarBtn) {
+        if (serialInput) {
+            serialInput.readOnly = false;
+            serialInput.style.pointerEvents = '';
+        }
+        if (inserirBtn) {
+            inserirBtn.disabled = false;
+        }
+        if (trocarBtn) {
+            trocarBtn.disabled = false;
+        }
+    }
+
+    function criarLinhaBipagem(item) {
+        const tr = document.createElement('tr');
+        let acoesGerente = '';
+        if (isGerentePa && !isVisualizadorMaster) {
+            acoesGerente = `
+                <td>${item.comentarios}</td>
+                <td>
+                    ${caixaFinalizada ? '<span class="badge-fechado">—</span>' : `
+                    <div class="icon-actions">
+                        <a href="/inventario/lote/${loteId}/caixas/${caixaId}/?edit_serial=${item.id}">
+                            <button type="button"><i class="fa-solid fa-pencil"></i></button>
+                        </a>
+                        <form method="post" action="/inventario/serial/${item.id}/excluir/" style="display:inline;">
+                            <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
+                            <button type="submit" onclick="return confirm('Deseja excluir este serial?')">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>`}
+                </td>`;
+        }
+        tr.innerHTML = `
+            <td>#${item.nr_caixa}</td>
+            <td>#${item.unidade}</td>
+            <td>${item.nrserie}</td>
+            <td>${item.modelo}</td>
+            <td>${item.estado}</td>
+            <td>${item.mensagem_ferramenta_inv}</td>
+            <td>${item.observacao}</td>
+            ${acoesGerente}
+        `;
+        return tr;
+    }
+
+    function adicionarLinhaTabela(item) {
+        const tbody = document.getElementById('bipagem-tbody');
+        if (!tbody) {
+            return;
+        }
+        tbody.insertBefore(criarLinhaBipagem(item), tbody.firstChild);
+        while (tbody.children.length > 10) {
+            tbody.removeChild(tbody.lastChild);
+        }
+    }
+
+    async function enviarSerialAjax(serial) {
+        const response = await fetch(inserirSerialUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: `serial=${encodeURIComponent(serial)}`,
+        });
+        return response.json();
     }
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -240,23 +318,56 @@
             return normalizado;
         }
 
+        async function processarSerial(normalizado) {
+            if (!normalizado || serialConsecutivoDuplicado(normalizado)) {
+                limparInputSerial();
+                return;
+            }
+
+            ultimoSerialProcessado = normalizado;
+            lockBipagemForm(serialInput, inserirBtn, trocarBtn);
+
+            try {
+                const data = await enviarSerialAjax(normalizado);
+                if (data.status === 'ignorado') {
+                    limparInputSerial();
+                    return;
+                }
+                if (data.status !== 'ok') {
+                    alert(data.mensagem || 'Não foi possível inserir o serial.');
+                    if (data.limite_atingido) {
+                        lockBipagemForm(serialInput, inserirBtn, trocarBtn);
+                    }
+                    return;
+                }
+                adicionarLinhaTabela(data.bipagem);
+                limparInputSerial();
+                if (data.limite_atingido) {
+                    alert(`Limite de ${data.limite_por_pa} bipagens atingido.`);
+                    lockBipagemForm(serialInput, inserirBtn, trocarBtn);
+                }
+            } catch (err) {
+                alert('Falha ao inserir serial. Tente novamente.');
+            } finally {
+                if (!serialInput || !serialInput.disabled) {
+                    unlockBipagemForm(serialInput, inserirBtn, trocarBtn);
+                    focarSerialInput();
+                }
+            }
+        }
+
         if (form && modoBipagem) {
-            form.addEventListener('submit', function (e) {
+            form.addEventListener('submit', async function (e) {
                 const nomeSubmit = nomeBotaoSubmit(e.submitter);
 
                 if (isAcaoSemSerial(nomeSubmit)) {
                     return;
                 }
 
-                const normalizado = aplicarSerialNormalizado(serialInput ? serialInput.value : '');
-                if (!normalizado || serialConsecutivoDuplicado(normalizado)) {
-                    e.preventDefault();
-                    limparInputSerial();
-                    return;
-                }
+                e.preventDefault();
 
-                ultimoSerialProcessado = normalizado;
-                lockBipagemForm(serialInput, inserirBtn, trocarBtn);
+                const normalizado = aplicarSerialNormalizado(serialInput ? serialInput.value : '');
+                await processarSerial(normalizado);
             });
         }
 
@@ -292,11 +403,7 @@
                             limparInputSerial();
                         } else if (normalizado) {
                             aplicarSerialNormalizado(serial);
-                            if (inserirBtn) {
-                                form.requestSubmit(inserirBtn);
-                            } else {
-                                form.submit();
-                            }
+                            processarSerial(normalizado);
                         }
                     }
                 } else if (e.key.length === 1) {

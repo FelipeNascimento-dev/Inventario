@@ -3,9 +3,14 @@ from django.urls import reverse
 
 from ..models import LoteBipagem, Caixa, Bipagem
 from ..forms import BipagemForm
+from ..services.bipagem_service import (
+    bipagem_para_json,
+    inserir_bipagem,
+    normalizar_serial,
+)
 from django.core.paginator import Paginator
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, JsonResponse
 from django.contrib import messages
 from django.views.decorators.http import require_POST
 
@@ -31,7 +36,10 @@ def bipagem(request, lote_id, caixa_id):
 
     PAs_COM_PERMISSAO_DIGITACAO = {}
 
-    lote = get_object_or_404(LoteBipagem, id=lote_id)
+    lote = get_object_or_404(
+        LoteBipagem.objects.select_related('group_user__informacoes'),
+        id=lote_id,
+    )
     caixa = get_object_or_404(Caixa, id=caixa_id, lote=lote)
 
     limite_por_pa = getattr(lote.group_user.informacoes, 'limite', 50)
@@ -52,15 +60,18 @@ def bipagem(request, lote_id, caixa_id):
     if request.method == 'POST':
         edit_id = request.POST.get('edit_id')
         form = BipagemForm(request.POST)
-        serial = form.data.get('serial', '').strip().upper()[-18:]
+        serial = normalizar_serial(form.data.get('serial', ''))
 
         if edit_id:
             bipagem_edit = get_object_or_404(Bipagem, id=edit_id)
             if form.is_valid():
-                novo_serial = form.cleaned_data['serial'].strip().upper()[-18:]
-                serial_em_uso = Bipagem.objects.filter(
-                    nrserie__iexact=novo_serial
-                ).exclude(id=bipagem_edit.id).exclude(id_lote__status='invalidado').first()
+                novo_serial = normalizar_serial(form.cleaned_data['serial'])
+                serial_em_uso = (
+                    Bipagem.objects.filter(nrserie=novo_serial)
+                    .exclude(id=bipagem_edit.id)
+                    .exclude(id_lote__status='invalidado')
+                    .first()
+                )
 
                 if serial_em_uso:
                     messages.warning(request, f"O serial '{novo_serial}' já está em uso.")
@@ -142,22 +153,13 @@ def bipagem(request, lote_id, caixa_id):
                 response.set_cookie('foco_serial', 'true', max_age=10)
                 return response
 
-            serial_ja_bipado = Bipagem.objects.filter(
-                nrserie__iexact=serial
-            ).exclude(id_lote__status='invalidado').exists()
-            observacao = "Duplicidade" if serial_ja_bipado else ""
-
-            Bipagem.objects.create(
-                id_caixa=caixa,
-                id_lote=lote,
-                group_user=lote.group_user,
-                nrserie=serial,
-                unidade=caixa.bipagem.count() + 1,
+            inserir_bipagem(
+                caixa=caixa,
+                lote=lote,
+                serial=serial,
                 modelo=request.session.get(modelo_key, ''),
                 estado=request.session.get(estado_key, ''),
-                observacao=observacao,
-                mensagem_ferramenta_inv='',
-                user_created=request.user,
+                user=request.user,
             )
             request.session[ultimo_serial_key] = serial
             messages.success(request, "Serial inserido com sucesso!")
@@ -191,16 +193,17 @@ def bipagem(request, lote_id, caixa_id):
     modo_selecao_modelo = not modo_edicao and session_estado and not session_modelo
     modo_bipagem = not modo_edicao and bool(session_estado) and bool(session_modelo)
 
-    bipagens_da_caixa = Bipagem.objects.filter(id_caixa=caixa).order_by('-id')
-    paginator = Paginator(bipagens_da_caixa, 10)
+    bipagens_qs = Bipagem.objects.filter(id_caixa=caixa).order_by('-id')
+    paginator = Paginator(bipagens_qs, 10)
     page_number = request.GET.get("page")
     page_obj = paginator.get_page(page_number)
+    total_bipagens_caixa = paginator.count
 
     mensagem = {'mostrar': True, 'encerrar': True}
 
     if caixa.status == 'Finalizada':
         mensagem = {'mensagem': 'Esta caixa está bloqueada e não pode ser editada.', 'voltar': True}
-    elif bipagens_da_caixa.count() >= limite_por_pa:
+    elif total_bipagens_caixa >= limite_por_pa:
         mensagem = {'mensagem': f'Esta caixa já possui o limite de {limite_por_pa} bipagens.', 'encerrar': True}
 
     nome_grupo_pa = lote.group_user.name if lote.group_user else ''
@@ -210,8 +213,8 @@ def bipagem(request, lote_id, caixa_id):
         'lote': lote,
         'caixa': caixa,
         'form': form,
-        'caixas': bipagens_da_caixa,
         'page_obj': page_obj,
+        'total_bipagens_caixa': total_bipagens_caixa,
         'mensagem': mensagem,
         'is_visualizador_master': is_visualizador_master,
         'is_gerente_pa': is_gerente_pa,
@@ -227,6 +230,85 @@ def bipagem(request, lote_id, caixa_id):
     }
 
     return render(request, 'inventario/bipagem.html', context)
+
+
+@require_POST
+@login_required(login_url='inventario:login')
+def inserir_serial_ajax(request, lote_id, caixa_id):
+    if request.user.groups.filter(name='INV_PA_VISUALIZADOR_MASTER').exists():
+        return JsonResponse(
+            {'status': 'erro', 'mensagem': 'Você não tem permissão para bipar seriais.'},
+            status=403,
+        )
+
+    lote = get_object_or_404(
+        LoteBipagem.objects.select_related('group_user__informacoes'),
+        id=lote_id,
+    )
+    caixa = get_object_or_404(Caixa, id=caixa_id, lote=lote)
+
+    if caixa.status == 'Finalizada':
+        return JsonResponse(
+            {'status': 'erro', 'mensagem': 'Esta caixa está bloqueada e não pode ser editada.'},
+            status=400,
+        )
+
+    modelo_key = _bipagem_session_key(caixa_id, 'modelo')
+    estado_key = _bipagem_session_key(caixa_id, 'estado')
+    modelo = request.session.get(modelo_key, '')
+    estado = request.session.get(estado_key, '')
+
+    if not modelo or not estado:
+        return JsonResponse(
+            {
+                'status': 'erro',
+                'mensagem': 'Confirme status e modelo antes de inserir seriais.',
+            },
+            status=400,
+        )
+
+    serial = normalizar_serial(request.POST.get('serial', ''))
+    if not serial:
+        return JsonResponse({'status': 'erro', 'mensagem': 'Serial inválido.'}, status=400)
+
+    ultimo_serial_key = _bipagem_session_key(caixa_id, 'ultimo_serial')
+    if serial == request.session.get(ultimo_serial_key, ''):
+        return JsonResponse({'status': 'ignorado', 'mensagem': 'Serial duplicado consecutivo.'})
+
+    limite_por_pa = getattr(lote.group_user.informacoes, 'limite', 50)
+    total_atual = Bipagem.objects.filter(id_caixa=caixa).count()
+    if total_atual >= limite_por_pa:
+        return JsonResponse(
+            {
+                'status': 'erro',
+                'mensagem': f'Esta caixa já possui o limite de {limite_por_pa} bipagens.',
+                'limite_atingido': True,
+            },
+            status=400,
+        )
+
+    bipagem = inserir_bipagem(
+        caixa=caixa,
+        lote=lote,
+        serial=serial,
+        modelo=modelo,
+        estado=estado,
+        user=request.user,
+    )
+    request.session[ultimo_serial_key] = serial
+
+    total_caixa = total_atual + 1
+    return JsonResponse({
+        'status': 'ok',
+        'mensagem': 'Serial inserido com sucesso!',
+        'bipagem': bipagem_para_json(bipagem, caixa),
+        'total_caixa': total_caixa,
+        'limite_por_pa': limite_por_pa,
+        'limite_atingido': total_caixa >= limite_por_pa,
+        'is_gerente_pa': any(
+            g.startswith('INV_PA_GER') for g in request.user.groups.values_list('name', flat=True)
+        ),
+    })
 
 
 @login_required
