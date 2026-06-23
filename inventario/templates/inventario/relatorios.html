@@ -50,7 +50,9 @@
                         {{ grupo.name }}
                     </option>
                     {% endfor %}
+                    {% if not is_auditoria_extracao %}
                     <option value="TODAS" {% if pa_selecionada == "TODAS" %}selected{% endif %}>TODAS AS PAs</option>
+                    {% endif %}
                 </select>
 
                 <label for="data">Selecione a Data de Extração:</label>
@@ -59,7 +61,6 @@
                 <div class="button-group">
                     <button type="button" class="bipagem-button" onclick="definirAcaoEEnviar('visualizar')">Consultar</button>
                     <button type="button" class="bipagem-button" onclick="definirAcaoEEnviar('pdf')">Extrair PDF</button>
-                    <!-- <a href="#" class="bipagem-button">Extrair CSV</a> -->
                     <button type="button" class="bipagem-button" onclick="definirAcaoEEnviar('csv')">Extrair CSV</button>
                 </div>
             </form>
@@ -95,6 +96,7 @@
         {% endif %}
     </div>
 
+    {% if not is_auditoria_extracao %}
     <div class="insercao-card">
         <h3>Inserir Serial Manualmente</h3>
         <form method="post">
@@ -109,6 +111,7 @@
             <button type="submit" class="bipagem-button">Salvar Serial</button>
         </form>
     </div>
+    {% endif %}
 </div>
 
 {% endblock %}

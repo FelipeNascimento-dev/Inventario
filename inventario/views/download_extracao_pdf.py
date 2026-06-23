@@ -13,6 +13,28 @@ from django.contrib import messages
 import csv
 
 
+def _is_usuario_auditoria_extracao(user):
+    return user.username.startswith('Auditoria_')
+
+
+_GRUPOS_ESPECIAIS = ["INV_PA_GER_TOTAL", "INV_PA_VISUALIZADOR_MASTER"]
+
+
+def _grupos_pa_usuario(user):
+    return user.groups.exclude(name__in=_GRUPOS_ESPECIAIS)
+
+
+def _pas_permitidas_auditoria(user):
+    return list(_grupos_pa_usuario(user).values_list('name', flat=True))
+
+
+def _resolver_pa_auditoria(user, pa_param):
+    pas = _pas_permitidas_auditoria(user)
+    if pa_param and pa_param.upper() != "TODAS" and pa_param in pas:
+        return pa_param
+    return pas[0] if pas else None
+
+
 def _filtro_data(data_convertida):
     if data_convertida:
         return {"criado_em__date": data_convertida}
@@ -39,6 +61,21 @@ def _get_extracao_dados(user, grupos, pa_param, data_convertida):
         lotes = LoteBipagem.objects.all()
         nome_pa = "TODAS AS PAs"
         endereco_pa = "Consolidado Geral"
+
+    elif _is_usuario_auditoria_extracao(user):
+        pa_resolvida = _resolver_pa_auditoria(user, pa_param)
+        grupo = Group.objects.filter(name=pa_resolvida).first() if pa_resolvida else None
+        nome_pa = pa_resolvida or "PA Não vinculada"
+        endereco_pa = getattr(grupo.informacoes, "endereco", "Não informado") if grupo else "Não informado"
+        if pa_resolvida:
+            bipagens = Bipagem.objects.filter(
+                id_caixa__lote__group_user__name=pa_resolvida,
+                **filtro_data,
+            )
+            lotes = LoteBipagem.objects.filter(group_user__name=pa_resolvida)
+        else:
+            bipagens = Bipagem.objects.none()
+            lotes = LoteBipagem.objects.none()
 
     else:
         grupo = user.groups.first()
@@ -121,6 +158,8 @@ def _build_extracao_context(user, pa_param, data_param):
 @login_required(login_url='inventario:login')
 def download_extracao_pdf(request):
     pa_param = request.GET.get('pa')
+    if _is_usuario_auditoria_extracao(request.user):
+        pa_param = _resolver_pa_auditoria(request.user, pa_param)
     data_param = request.GET.get('data')
 
     context, total_seriais = _build_extracao_context(request.user, pa_param, data_param)
@@ -146,22 +185,37 @@ def relatorios_view(request):
     usuarios_admins = ['adm_tecnico', 'adm_gtn', 'adm_auditoria']
     is_admin = username in usuarios_admins
 
-    if is_admin:
-        grupos = list(Group.objects.exclude(name__in=["INV_PA_GER_TOTAL", "INV_PA_VISUALIZADOR_MASTER"]))
+    is_auditoria_extracao = _is_usuario_auditoria_extracao(user)
+
+    if is_auditoria_extracao:
+        grupos = _grupos_pa_usuario(user)
+        pa_padrao = _resolver_pa_auditoria(user, None)
+        pa_selecionada = (
+            _resolver_pa_auditoria(user, request.GET.get('pa'))
+            if 'pa' in request.GET else pa_padrao
+        )
+    elif is_admin:
+        grupos = list(Group.objects.exclude(name__in=_GRUPOS_ESPECIAIS))
         class DummyGroup:
             def __init__(self, name): self.name = name
         grupos.insert(0, DummyGroup("TODAS"))
+        pa_selecionada = request.GET.get('pa')
     else:
-        grupos = user.groups.exclude(name__in=["INV_PA_GER_TOTAL", "INV_PA_VISUALIZADOR_MASTER"])
+        grupos = _grupos_pa_usuario(user)
+        pa_selecionada = request.GET.get('pa')
 
-    pa_selecionada = request.GET.get('pa')
+    data_selecionada = parse_date(request.GET.get('data')) if request.GET.get('data') else None
     dados_pa = []
 
-    if pa_selecionada:
-        if pa_selecionada == "TODAS":
+    pa_para_consulta = request.GET.get('pa')
+    if is_auditoria_extracao:
+        pa_para_consulta = _resolver_pa_auditoria(user, pa_para_consulta) if pa_para_consulta else None
+
+    if pa_para_consulta:
+        if pa_para_consulta == "TODAS" and not is_auditoria_extracao:
             lotes = LoteBipagem.objects.select_related('group_user').all()
         else:
-            lotes = LoteBipagem.objects.select_related('group_user').filter(group_user__name=pa_selecionada)
+            lotes = LoteBipagem.objects.select_related('group_user').filter(group_user__name=pa_para_consulta)
 
         for lote in lotes:
             total_seriais = Bipagem.objects.filter(id_caixa__lote=lote).count()
@@ -179,6 +233,10 @@ def relatorios_view(request):
             })
 
     if request.method == 'POST':
+        if is_auditoria_extracao:
+            messages.error(request, "Você não tem permissão para inserir seriais manualmente.")
+            return redirect(request.path_info)
+
         modelo = request.POST.get('modelo_manual', '').strip()
         quantidade = request.POST.get('quantidade_manual', '').strip()
         pa_selecionada = request.GET.get('pa')
@@ -229,6 +287,8 @@ def relatorios_view(request):
         'grupos': grupos,
         'dados_pa': dados_pa,
         'pa_selecionada': pa_selecionada,
+        'data_selecionada': data_selecionada,
+        'is_auditoria_extracao': is_auditoria_extracao,
     })
 
 
@@ -236,6 +296,8 @@ def relatorios_view(request):
 def download_extracao_csv(request):
     user = request.user
     pa_param = request.GET.get('pa')
+    if _is_usuario_auditoria_extracao(user):
+        pa_param = _resolver_pa_auditoria(user, pa_param)
     formato = request.GET.get('formato')
     data_param = request.GET.get('data')
     data_convertida = parse_date(data_param) if data_param else None
