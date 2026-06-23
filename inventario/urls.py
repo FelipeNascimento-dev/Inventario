@@ -3,8 +3,10 @@ from .views import RegisterView
 from django.urls import path
 from .views import index, logout_confirm_view, logout_view, criar_lote_view, lote, \
 iniciar_caixa_redirect, bipagem, validar_lote_view, validar_serial, finalizar_lote_view, \
-acompanhamento_dash, download_extracao_pdf, editar_serial, excluir_serial, relatorios_view, \
-download_extracao_csv
+acompanhamento_dash, acompanhamento_api_lotes, acompanhamento_api_resumo, \
+acompanhamento_api_quantidades, acompanhamento_api_contagem_usuario, \
+acompanhamento_api_lote_detalhe, download_extracao_pdf, editar_serial, excluir_serial, \
+relatorios_view, download_extracao_csv
 
 
 app_name = 'inventario'
@@ -23,6 +25,11 @@ urlpatterns = [
     path('lote/<int:lote_id>/validar/serial/', validar_serial, name='validar_serial'),
     path('lote/<int:lote_id>/fechar/', finalizar_lote_view, name='fechar_lote'),
     path('acompanhamento/', acompanhamento_dash, name='acompanhamento'),
+    path('acompanhamento/api/lotes/', acompanhamento_api_lotes, name='acompanhamento_api_lotes'),
+    path('acompanhamento/api/lotes/<int:lote_id>/', acompanhamento_api_lote_detalhe, name='acompanhamento_api_lote_detalhe'),
+    path('acompanhamento/api/resumo/', acompanhamento_api_resumo, name='acompanhamento_api_resumo'),
+    path('acompanhamento/api/quantidades/', acompanhamento_api_quantidades, name='acompanhamento_api_quantidades'),
+    path('acompanhamento/api/contagem-usuario/', acompanhamento_api_contagem_usuario, name='acompanhamento_api_contagem_usuario'),
     path('download-extracao/', download_extracao_pdf, name='download_extracao'),
     path('serial/<int:serial_id>/editar/', editar_serial, name='editar_serial'),
     path('serial/<int:serial_id>/excluir/', excluir_serial, name='excluir_serial'),

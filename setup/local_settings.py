@@ -20,13 +20,15 @@ CSRF_TRUSTED_ORIGINS: list[str] = [
     'http://www.centralretencao.com.br'
 ]
 
+INVENTARIO_API_BASE_URL = 'http://192.168.0.216/inventario-api'
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'arancia_db',
-        'USER': 'sa',
-        'PASSWORD': 'Profeta_01',
-        'HOST': '192.168.0.220',  # ou o IP do servidor
+        'NAME': 'inventario-gtn-db',
+        'USER': 'inventario',
+        'PASSWORD': 'teste2020-',
+        'HOST': '192.168.0.222',  # ou o IP do servidor
         'PORT': '5432',       # padrão do PostgreSQL
     }
 }

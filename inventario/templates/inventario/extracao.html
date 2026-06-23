@@ -36,19 +36,28 @@
             color: #aa2d3d;
         }
 
+        .info-basica p {
+            margin: 4px 0;
+        }
+
+        .bloco-final {
+            page-break-inside: avoid;
+        }
+
         .assinaturas {
             margin-top: 60px;
-            display: flex;
-            justify-content: space-between;
+            width: 100%;
         }
 
-        .assinatura {
-            width: 30%;
+        .assinaturas td {
+            width: 33%;
+            border: none;
             text-align: center;
+            vertical-align: bottom;
+            padding-top: 60px;
         }
 
-        .assinatura p {
-            margin-top: 60px;
+        .assinatura-linha {
             border-top: 1px solid #000;
             padding-top: 5px;
             font-weight: bold;
@@ -60,8 +69,9 @@
             color: #555;
         }
 
-        .info-basica p {
-            margin: 4px 0;
+        .observacao ul {
+            margin: 8px 0 0 18px;
+            padding: 0;
         }
     </style>
 </head>
@@ -85,19 +95,17 @@
 
     <h2>2. Estrutura do Inventário</h2>
     <p>O inventário está estruturado em lotes, com caixas e seriais conforme tabela a seguir, segregando por tipos de
-        equipamentos, se BAD, GOOD, FIFO, ILEGÍVEIS, DESCARTES e outros, conforme a necessidade de cada local.</p>
+        equipamentos — GOOD, BAD, TRIAGEM, OBSOLETO e KIT GOOD — conforme a classificação registrada na bipagem.</p>
 
     <h2>3. Localização dos Bens</h2>
     <p>Os equipamentos encontram-se atualmente sob a guarda de terceiros, conforme registros e acordos vigentes, estando
         alocados nos pontos de atendimento (PAs), centros de distribuição (CDs) e/ou agências, devidamente identificados
-        no
-        sistema e indicados neste documento.</p>
+        no sistema e indicados neste documento.</p>
 
     <h2>4. Conclusão</h2>
     <p>Todos os itens listados neste laudo foram conferidos por bipagem e encontram-se regularizados conforme os dados
         registrados no sistema. As partes concordam que este documento resume, com correção, aquilo que foi bipado,
-        conforme
-        resumo quantitativo abaixo.</p>
+        conforme resumo quantitativo abaixo.</p>
 
     <h2>5. Resumo Quantitativo</h2>
     <table>
@@ -121,45 +129,30 @@
         </tbody>
     </table>
 
-
-    <h3>Controle de Seriais Esperados x Bipados</h3>
-    <table>
-        <thead>
-            <tr style="background-color: #f28c8c;">
-                <th>PA</th>
-                <th>Seriais Esperados</th>
-                <th>Seriais Bipados</th>
-            </tr>
-        </thead>
-        <tbody>
+    <div class="bloco-final">
+        <h2>6. Assinaturas</h2>
+        <table class="assinaturas">
             <tr>
-                <td>{{ nome_pa }}</td>
-                <td>{{ total_seriais_esperados }}</td>
-                <td>{{ total_seriais_bipados }}</td>
+                <td>
+                    <div class="assinatura-linha">Responsável Técnico da Unidade</div>
+                </td>
+                <td>
+                    <div class="assinatura-linha">Representante da GetNet</div>
+                </td>
+                <td>
+                    <div class="assinatura-linha">Supervisor dos Auditores</div>
+                </td>
             </tr>
-        </tbody>
-    </table>
+        </table>
 
-    <h2>6. Assinaturas</h2>
-    <div class="assinaturas">
-        <div class="assinatura">
-            <p>Responsável Técnico da Unidade</p>
+        <div class="observacao">
+            <p><strong>IMPORTANTE:</strong> Este documento deve ser impresso em 03 vias de igual teor e forma.</p>
+            <ul>
+                <li>VIA 01 Fica com o Responsável Técnico da Unidade Inventariada</li>
+                <li>VIA 02 Fica com o Representante da GetNet</li>
+                <li>VIA 03 Fica com o Supervisor dos Auditores e retorna para a C-TRENDS</li>
+            </ul>
         </div>
-        <div class="assinatura">
-            <p>Representante da GetNet</p>
-        </div>
-        <div class="assinatura">
-            <p>Supervisor dos Auditores</p>
-        </div>
-    </div>
-
-    <div class="observacao">
-        <p><strong>IMPORTANTE:</strong> Este documento deve ser impresso em 03 vias de igual teor e forma.</p>
-        <ul>
-            <li>VIA 01 Fica com o Responsável Técnico da Unidade Inventariada</li>
-            <li>VIA 02 Fica com o Representante da GetNet</li>
-            <li>VIA 03 Fica com o Supervisor dos Auditores e retorna para a C-TRENDS</li>
-        </ul>
     </div>
 
 </body>

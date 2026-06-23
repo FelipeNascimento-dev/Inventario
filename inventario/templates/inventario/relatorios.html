@@ -1,129 +1,7 @@
 {% extends 'global/base.html' %}
+{% load static %}
 
 {% block content %}
-
-<style>
-    .container-relatorio {
-        margin-top: 300px;
-        max-width: 1200px;
-        margin-left: 200px;
-        display: grid;
-        grid-template-columns: 2fr 1fr;
-        gap: 40px;
-        align-items: start;
-    }
-
-    .relatorio-header {
-        margin-bottom: 20px;
-    }
-
-    .form-card, .insercao-card {
-        background-color: #fff;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        padding: 24px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-    }
-
-    .form-card label,
-    .insercao-card label {
-        display: block;
-        margin-bottom: 6px;
-        font-weight: 500;
-        color: #333;
-    }
-
-    .form-card select,
-    .insercao-card input {
-        width: 100%;
-        padding: 10px;
-        border-radius: 6px;
-        border: 1px solid #ccc;
-        margin-bottom: 16px;
-        font-size: 14px;
-    }
-
-    .button-group {
-        display: flex;
-        gap: 10px;
-        margin-top: 10px;
-    }
-
-    .bipagem-button {
-        background-color: #dc3545;
-        color: white;
-        padding: 10px 16px;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-weight: 500;
-        transition: background 0.2s ease;
-    }
-
-    .bipagem-button:hover {
-        background-color: #c82333;
-    }
-
-    .scroll-tabela-lotes {
-        max-height: 500px;
-        overflow-y: auto;
-        margin-top: 30px;
-        border: 1px solid #ccc;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-        width: 700px;
-    }
-
-    .tabela-lotes {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 14px;
-    }
-
-    .tabela-lotes th,
-    .tabela-lotes td {
-        border: 1px solid #ddd;
-        padding: 12px;
-        text-align: center;
-    }
-
-    .tabela-lotes th {
-        background-color: #f8f9fa;
-        font-weight: 600;
-    }
-
-    .messages {
-        margin: 20px auto;
-        max-width: 1200px;
-    }
-
-    .message {
-        padding: 12px 20px;
-        border-radius: 6px;
-        margin-bottom: 16px;
-        font-size: 15px;
-    }
-
-    .message.success {
-        background-color: #d4edda;
-        color: #155724;
-        border: 1px solid #c3e6cb;
-    }
-
-    .message.error {
-        background-color: #f8d7da;
-        color: #721c24;
-        border: 1px solid #f5c6cb;
-    }
-
-    .insercao-card h3 {
-        margin-bottom: 16px;
-        color: #444;
-        font-size: 18px;
-        border-bottom: 1px solid #eee;
-        padding-bottom: 8px;
-    }
-</style>
 
 <script>
     function definirAcaoEEnviar(acao) {
@@ -162,7 +40,7 @@
         <div class="form-card">
             <form method="get" id="form-relatorio">
                 <div class="relatorio-header">
-                    <h2 style="margin: 0; color: #444;">Relatórios de Inventário</h2>
+                    <h2>Relatórios de Inventário</h2>
                 </div>
 
                 <label for="pa">Selecione a PA:</label>
@@ -224,9 +102,6 @@
 
             <label for="modelo_manual">Modelo:</label>
             <input type="text" name="modelo_manual" id="modelo_manual">
-
-            <label for="estado_manual">Estado:</label>
-            <input type="text" name="estado_manual" id="estado_manual">
 
             <label for="quantidade_manual">Quantidade:</label>
             <input type="text" name="quantidade_manual" id="quantidade_manual">

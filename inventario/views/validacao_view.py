@@ -13,19 +13,7 @@ from django.contrib.messages import add_message, SUCCESS
 
 @login_required(login_url='inventario:login')
 def validar_lote_view(request, lote_id):
-    PAs_COM_PERMISSAO_DIGITACAO = {
-        'AG_0019_RIBEIRAO_PRETO_SP_CORNER',
-        'AG_0189_CAXIAS_DO_SUL_RS_CORNER',
-        'AG_3153_GENERAL_OSORIO_RJ_CORNER',
-        'AG_3524_BELEM_PA_CORNER',
-        'AG_4017_CARUARU_PE_CORNER',
-        'AG_4036_JABOATAO_GUARARAPES_PE_CORNER',
-        'AG_4156_CABO_DE_SANTO_AGOSTINHO_PE_CORNE',
-        'AG_4375_SANTAREM_PA_CORNER',
-        'AG_0215_PETROPOLIS_RJ_CORNER',
-        'AG_3520_UBERABA_MG_CORNER',
-        'AG_2185_RONDONOPOLIS_MT_CORNER',
-    }
+    PAs_COM_PERMISSAO_DIGITACAO = {}
 
     lote = get_object_or_404(LoteBipagem, id=lote_id)
     nome_grupo_pa = lote.group_user.name if lote.group_user else ''
@@ -64,19 +52,7 @@ def validar_lote_view(request, lote_id):
 @csrf_exempt
 def validar_serial(request, lote_id):
     if request.method == "POST":
-        PAs_COM_PERMISSAO_DIGITACAO = {
-            'AG_0019_RIBEIRAO_PRETO_SP_CORNER',
-            'AG_0189_CAXIAS_DO_SUL_RS_CORNER',
-            'AG_3153_GENERAL_OSORIO_RJ_CORNER',
-            'AG_3524_BELEM_PA_CORNER',
-            'AG_4017_CARUARU_PE_CORNER',
-            'AG_4036_JABOATAO_GUARARAPES_PE_CORNER',
-            'AG_4156_CABO_DE_SANTO_AGOSTINHO_PE_CORNE',
-            'AG_4375_SANTAREM_PA_CORNER',
-            'AG_0215_PETROPOLIS_RJ_CORNER',
-            'AG_3520_UBERABA_MG_CORNER',
-            'AG_2185_RONDONOPOLIS_MT_CORNER',
-        }
+        PAs_COM_PERMISSAO_DIGITACAO = {}
 
         lote = get_object_or_404(LoteBipagem, id=lote_id)
         nome_grupo_pa = lote.group_user.name if lote.group_user else ''

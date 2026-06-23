@@ -6,37 +6,23 @@
   <input type="hidden" name="edit_id" value="{{ serial_editando }}">
 {% endif %}
 
-<div class="form-group-1col">
-  {{ form.estado.label_tag }}
-  {{ form.estado }}
-  {% if form.estado.errors %}
-    <div class="error">{{ form.estado.errors }}</div>
-  {% endif %}
-</div>
-
-<div class="form-group-1col">
-  {{ form.serial.label_tag }}
-  {{ form.serial }}
-  {% if form.serial.errors %}
-    <div class="error">{{ form.serial.errors }}</div>
-  {% endif %}
-</div>
-
-<div class="form-group-1col">
-  {{ form.modelo.label_tag }}
-  {% if modelo_autocompletado %}
-    <input type="text" name="modelo" id="modelo-input" value="{{ form.modelo.value|stringformat:'s' }}" readonly>
-  {% else %}
-    {{ form.modelo }}
-  {% endif %}
-  {% if form.modelo.errors %}
-    <div class="error">{{ form.modelo.errors }}</div>
-  {% endif %}
-</div>
-
-
-{# Só exibe comentários se estiver editando #}
 {% if modo_edicao %}
+  <div class="form-group-1col">
+    {{ form.serial.label_tag }}
+    {{ form.serial }}
+    {% if form.serial.errors %}
+      <div class="error">{{ form.serial.errors }}</div>
+    {% endif %}
+  </div>
+
+  <div class="form-group-1col">
+    {{ form.modelo.label_tag }}
+    {{ form.modelo }}
+    {% if form.modelo.errors %}
+      <div class="error">{{ form.modelo.errors }}</div>
+    {% endif %}
+  </div>
+
   <div class="form-group-1col">
     {{ form.comentarios.label_tag }}
     {{ form.comentarios }}
@@ -44,19 +30,84 @@
       <div class="error">{{ form.comentarios.errors }}</div>
     {% endif %}
   </div>
-{% endif %}
 
-<div class="button-group">
-  {% if modo_edicao %}
+  <div class="button-group">
     <button id="inserir-button" type="submit" class="btn-editar">
       Salvar Edição
     </button>
-  {% elif exibir_consultar %}
-    <button type="submit" name="buscar_dados" class="buscar-dados">Consultar</button>
-  {% else %}
-    <button id="inserir-button" type="submit" data-modelo-autocompletado="{{ modelo_autocompletado|yesno:'true,false' }}">
-      Inserir
-    </button>
-  {% endif %}
-  <button type="button" id="clear-button" class="bipagem-button-clear">Limpar</button>
-</div>
+    <button type="button" id="clear-button" class="bipagem-button-clear">Limpar</button>
+  </div>
+
+{% elif modo_selecao_inicial %}
+  <div class="form-group-1col">
+    {{ form.estado.label_tag }}
+    {{ form.estado }}
+    {% if form.estado.errors %}
+      <div class="error">{{ form.estado.errors }}</div>
+    {% endif %}
+  </div>
+
+  <div class="form-group-1col">
+    {{ form.modelo.label_tag }}
+    {{ form.modelo }}
+    {% if form.modelo.errors %}
+      <div class="error">{{ form.modelo.errors }}</div>
+    {% endif %}
+  </div>
+
+  <input type="hidden" name="serial" value="">
+
+  <div class="button-group">
+    <button type="submit" name="confirmar_modelo" class="bipagem-button">Confirmar</button>
+    <button type="button" id="clear-button" class="bipagem-button-clear">Limpar</button>
+  </div>
+
+{% elif modo_selecao_modelo %}
+  <div class="form-group-1col">
+    <label>Status</label>
+    <input type="text" class="campo-bloqueado" value="{{ estado_selecionado_display }}" readonly>
+    <input type="hidden" name="estado" value="{{ estado_selecionado }}">
+    <small class="campo-bloqueado-hint">O status não pode ser alterado nesta caixa.</small>
+  </div>
+
+  <div class="form-group-1col">
+    {{ form.modelo.label_tag }}
+    {{ form.modelo }}
+    {% if form.modelo.errors %}
+      <div class="error">{{ form.modelo.errors }}</div>
+    {% endif %}
+  </div>
+
+  <input type="hidden" name="serial" value="">
+
+  <div class="button-group">
+    <button type="submit" name="confirmar_modelo" class="bipagem-button">Confirmar modelo</button>
+    <button type="button" id="clear-button" class="bipagem-button-clear">Limpar</button>
+  </div>
+
+{% else %}
+  <div class="form-group-1col">
+    <label>Status</label>
+    <input type="text" class="campo-bloqueado" value="{{ estado_selecionado_display }}" readonly>
+  </div>
+
+  <div class="form-group-1col">
+    <label>Modelo</label>
+    <input type="text" class="campo-bloqueado" value="{{ modelo_selecionado }}" readonly>
+    <input type="hidden" name="modelo" value="{{ modelo_selecionado }}">
+  </div>
+
+  <div class="form-group-1col">
+    {{ form.serial.label_tag }}
+    {{ form.serial }}
+    {% if form.serial.errors %}
+      <div class="error">{{ form.serial.errors }}</div>
+    {% endif %}
+  </div>
+
+  <div class="button-group">
+    <button id="inserir-button" type="submit" class="bipagem-button">Inserir</button>
+    <button id="trocar-modelo-button" type="submit" name="trocar_modelo" class="bipagem-button">Trocar modelo</button>
+    <button type="button" id="clear-button" class="bipagem-button-clear">Limpar</button>
+  </div>
+{% endif %}

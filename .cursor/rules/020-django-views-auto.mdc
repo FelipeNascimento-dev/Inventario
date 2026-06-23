@@ -1,0 +1,43 @@
+---
+description: Regras para criação e alteração de views Django.
+globs: "**/views.py,**/views/**/*.py"
+alwaysApply: false
+---
+
+# Views Django
+
+Ao criar ou alterar views:
+
+## A view deve
+- Verificar autenticação quando necessário (`login_required`, mixins ou validação explícita).
+- Aplicar permissões de grupo, GAI e UserDesignation quando a tela depender de cliente/PA/escopo.
+- Receber request e parâmetros.
+- Instanciar forms.
+- Chamar services/helpers para regras complexas.
+- Renderizar template ou retornar resposta adequada.
+- Tratar erros previsíveis com mensagens amigáveis.
+
+## A view não deve
+- Concentrar regra de negócio extensa.
+- Fazer muitas queries repetidas sem organização.
+- Duplicar lógica já existente em outra view.
+- Fazer chamadas externas diretamente se isso puder ir para service/core.
+- Ignorar filtros de cliente/GAI quando a tela depender do cliente real do usuário.
+
+## Padrão recomendado
+
+```python
+@login_required
+def minha_view(request):
+    contexto_usuario = obter_contexto_usuario(request.user)
+    resultado = meu_service.executar(user=request.user, contexto=contexto_usuario)
+    return render(request, "app/template.html", {"resultado": resultado})
+```
+
+## Para views legadas
+
+Se a view já for grande, preferir:
+1. preservar comportamento atual;
+2. corrigir o necessário;
+3. extrair somente a nova lógica ou a parte alterada;
+4. comentar no resumo o que foi mantido e o que foi isolado.

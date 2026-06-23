@@ -1,0 +1,63 @@
+---
+description: Regras para documentação, README e release notes em projetos Django.
+globs: "README.md,requirements.txt,**/apps.py,setup/settings.py,setup/urls.py,**/urls.py,**/models.py,**/migrations/*.py,**/views.py,**/views/**/*.py,**/forms/**/*.py,**/templates/**/*.html,**/management/commands/*.py,**/tasks.py,setup/middleware/**/*.py,.cursor/business-rules/**/*.md"
+alwaysApply: false
+---
+
+# Documentação
+
+O README principal deve conter apenas informações reais do projeto.
+
+Ao editar arquivos cobertos pelas globs acima, avaliar se o [`README.md`](../../README.md) precisa ser atualizado.
+
+## Atualizar README quando houver
+
+- novo app;
+- nova tela;
+- nova view importante;
+- nova regra GAI/UserDesignation;
+- novo fluxo de permissão;
+- nova integração externa;
+- novo comando de execução;
+- nova dependência;
+- nova estrutura de pasta;
+- nova regra de negócio confirmada.
+
+## Mapeamento de globs (somente alterações relevantes)
+
+| Gatilho | Glob(s) | O que verificar no README |
+| ------- | ------- | ------------------------- |
+| Novo app | `**/apps.py` | Tabela de apps; estrutura de pastas |
+| Nova tela | `**/templates/**/*.html` | Módulos/rotas; alterações recentes |
+| Nova view importante | `**/views.py`, `**/views/**/*.py` | Módulos principais; alterações recentes |
+| GAI / UserDesignation | `**/models.py`, `**/migrations/*.py` | Seção identidade e permissões |
+| Fluxo de permissão | `**/models.py`, `**/migrations/*.py`, `setup/middleware/**/*.py` | Permissões e middleware |
+| Integração externa | `**/tasks.py`, `setup/settings.py` | Stack e execução (sem secrets) |
+| Comando de execução | `**/management/commands/*.py` | Seção execução local |
+| Nova dependência | `requirements.txt` | Stack |
+| Rotas / prefixo | `setup/urls.py`, `**/urls.py` | Prefixo e tabela de módulos |
+| Regra de negócio confirmada | `.cursor/business-rules/**/*.md` | Documentação Cursor; alterações recentes se impacto visível |
+| Edição do próprio README | `README.md` | Manter consistência e tabela de alterações |
+
+**Fora do escopo das globs** (não dispara revisão automática): ajustes de CSS/JS isolados, refactors internos sem nova tela/rota/permissão, comentários, testes sem mudança funcional, `__pycache__`, secrets em `local_settings.py`.
+
+## Alterações recentes
+
+Manter seção opcional no README:
+
+```md
+## Alterações recentes
+
+| Data | Tipo | Módulo/Pasta | Alteração | Impacto |
+| ---- | ---- | ------------ | --------- | ------- |
+| 2026-05-31 | Adicionado | `logistica/` | Criada nova tela X. | Usuários Y passam a acessar Z. |
+```
+
+Registrar apenas mudanças com impacto operacional ou arquitetural. Omitir tweaks visuais menores e correções triviais.
+
+## Não documentar
+
+- funcionalidades imaginadas;
+- endpoints/telas ainda não implementados, salvo marcados como planejamento;
+- detalhes sensíveis (credenciais, API keys, hosts internos em produção);
+- regras de negócio inferidas sem confirmação.

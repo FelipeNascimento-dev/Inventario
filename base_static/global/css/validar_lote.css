@@ -3,7 +3,7 @@
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    background: #fff4f4;
+    background: var(--color-bg-page);
 }
 
 .validacao-container {
@@ -11,21 +11,21 @@
     height: 350px;
     margin: 80px auto;
     padding: 30px;
-    border-radius: 20px;
-    background: #fff4f4;
-    border: 1.5px solid #ef9a9a;
-    box-shadow: 0 4px 20px rgba(242, 154, 154, 0.2);
+    border-radius: var(--radius-xl);
+    background: var(--color-bg-surface);
+    border: 1.5px solid var(--color-border);
+    box-shadow: var(--shadow-lg);
 }
 
 .validacao-container h2 {
     text-align: center;
-    color: #aa2d2d;
+    color: var(--color-text-heading);
     margin-bottom: 30px;
 }
 
 .validacao-container label {
     font-weight: bold;
-    color: #b74d4d;
+    color: var(--color-text-heading);
 }
 
 .validacao-container input,
@@ -34,52 +34,55 @@
     padding: 10px 12px;
     margin-top: 6px;
     margin-bottom: 20px;
-    border: 1px solid #ef9a9a;
-    border-radius: 8px;
-    background: #fffafa;
-    color: #802f2f;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-input);
+    color: var(--color-text);
+    transition: border-color var(--transition-base), box-shadow var(--transition-base);
 }
 
 .validacao-container input:focus,
 .validacao-container textarea:focus {
     outline: none;
-    border-color: #b74d4d;
-    box-shadow: 0 0 4px #f29a9a88;
+    border-color: var(--color-border-focus);
+    box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.12);
 }
 
 .validacao-container .alert {
-    background-color: #fdeaea;
-    border: 1px solid #ef9a9a;
-    color: #b74d4d;
+    background-color: var(--color-error-bg);
+    border: 1px solid var(--color-error-border);
+    color: var(--color-error-text);
     padding: 12px;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     margin-bottom: 20px;
 }
 
 .validacao-container .btn-success {
-    background-color: #ef9a9a;
+    background-color: var(--color-primary);
     border: none;
-    color: #fff;
+    color: var(--color-text-on-primary);
     font-weight: bold;
     padding: 10px 20px;
-    border-radius: 10px;
-    transition: background-color 0.2s ease-in-out;
+    border-radius: var(--radius-md);
+    transition: background-color var(--transition-base);
+    cursor: pointer;
 }
 
 .validacao-container .btn-success:hover {
-    background-color: #d67c7c;
+    background-color: var(--color-primary-hover);
 }
 
 .validacao-container .btn-secondary {
-    background-color: #fbe6e6;
-    border: 1px solid #ef9a9a;
-    color: #aa2d2d;
+    background-color: var(--color-bg-muted);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-heading);
     padding: 10px 20px;
-    border-radius: 10px;
+    border-radius: var(--radius-md);
     margin-left: 10px;
-    transition: background-color 0.2s ease-in-out;
+    transition: background-color var(--transition-base);
+    cursor: pointer;
 }
 
 .validacao-container .btn-secondary:hover {
-    background-color: #f3dcdc;
+    background-color: var(--color-bg-input);
 }

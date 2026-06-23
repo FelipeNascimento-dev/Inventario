@@ -6,56 +6,62 @@ body, html {
 
 .centraliza-tela {
     min-height: 100vh;
-    padding-top: 120px; 
+    padding-top: 120px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    background: #fff4f4;
+    background: var(--color-bg-page);
     gap: 40px;
 }
 
 .scroll-tabela-caixas {
     width: 90%;
     max-width: 900px;
-    max-height: 700px;  
-    overflow-y: auto; 
-    background: #fff4f4;
-    border: 1.5px solid #ef9a9a;
-    border-radius: 18px;
-    box-shadow: 0 4px 24px #f29a9a33;
+    max-height: 700px;
+    overflow-y: auto;
+    background: var(--color-bg-surface);
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
 }
 
 .tabela-caixas {
     width: 100%;
     border-collapse: collapse;
-    background: #fff4f4;
-    border-radius: 8px;
+    background: var(--color-bg-surface);
+    border-radius: var(--radius-sm);
     overflow: hidden;
 }
 
-.tabela-caixas th, .tabela-caixas td {
+.tabela-caixas th,
+.tabela-caixas td {
     padding: 12px;
     text-align: center;
-    border-bottom: 1px solid #ef9a9a77;
+    border-bottom: 1px solid rgba(239, 154, 154, 0.45);
 }
 
 .tabela-caixas th {
-    background: #ef9a9a;
-    color: #aa2d2d;
+    background: var(--color-primary);
+    color: var(--color-text-on-primary);
+}
+
+.tabela-caixas tbody tr:nth-child(even) {
+    background: var(--color-bg-input);
 }
 
 .tabela-caixas td {
-    color: #b74d4d;
+    color: var(--color-text-muted);
 }
 
 .edit-icon {
-    color: #b74d4d;
+    color: var(--color-text-muted);
     font-size: 1rem;
-    opacity: 0.3;
-    transition: opacity 0.2s ease-in-out;
+    opacity: 0.35;
+    transition: opacity var(--transition-base), color var(--transition-base);
 }
 
 tr:hover .edit-icon {
     opacity: 1;
+    color: var(--color-primary);
 }

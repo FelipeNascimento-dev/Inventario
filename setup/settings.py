@@ -125,6 +125,9 @@ LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/inventario/'
 LOGOUT_REDIRECT_URL = '/login/'
 
+# URL base da API FastAPI de inventário (sobrescrever em local_settings.py)
+INVENTARIO_API_BASE_URL = 'http://127.0.0.1/inventario-api'
+
 try:
     from setup.local_settings import *
 except ImportError:

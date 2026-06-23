@@ -2,165 +2,99 @@
 
 {% block content %}
 
-<div class="form-container">
+<div class="bipagem-page">
     {% if not is_visualizador_master %}
-    <form method="post" class="form-1col">
-        {% csrf_token %}
-        {% if mensagem.mostrar == True %}
-        {% include 'global/partials/_form_1col.html' %}
-        {% else %}
-        <h2 class="mensagem">{{ mensagem.mensagem }}</h2>
-        <h2 class="mensagem">{{ mensagem.mensagem2 }}</h2>
-        {% endif %}
-    </form>
+    <div class="form-container">
+        <form method="post" class="form-1col">
+            {% csrf_token %}
+            {% if mensagem.mostrar == True %}
+            {% include 'global/partials/_form_1col.html' %}
+            {% else %}
+            <p class="bipagem-aviso">{{ mensagem.mensagem }}</p>
+            {% if mensagem.mensagem2 %}
+            <p class="bipagem-aviso">{{ mensagem.mensagem2 }}</p>
+            {% endif %}
+            {% endif %}
+        </form>
+    </div>
     {% endif %}
-</div>
 
-{% for message in messages %}
-<div class="
-        {% if message.tags == 'success' %}
-            alert-success-custom
-        {% elif message.tags == 'error' %}
-            alert-error-message
-        {% elif message.tags == 'warning' %}
-            alert-warning-message
-        {% else %}
-            alert-info
-        {% endif %}
-    ">
-    <ul class="messages">
-        <li class="{{ message.tags }}">{{ message }}</li>
-    </ul>
-</div>
+    {% if messages %}
+    <div class="bipagem-alerts">
+        {% for message in messages %}
+        <div class="bipagem-alert bipagem-alert--{{ message.tags|default:'info' }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 
-{% if message.tags == 'success' and mensagem_ferramenta %}
-{% with ferramenta=mensagem_ferramenta|upper %}
-{% if ferramenta == 'FIFO' %}
-<div class="alert-success-customize msg-fifo">
-    <ul class="messages">
-        <li class="alert-tool-message">{{ ferramenta|title }}</li>
-    </ul>
-</div>
-{% elif ferramenta == 'DESCARTE' %}
-<div class="alert-success-customize msg-descarte">
-    <ul class="messages">
-        <li class="alert-tool-message">{{ ferramenta|title }}</li>
-    </ul>
-</div>
-{% elif ferramenta == 'NUNCA INSTALADO' %}
-<div class="alert-success-customize msg-nunca-instalado">
-    <ul class="messages">
-        <li class="alert-tool-message">{{ ferramenta|title }}</li>
-    </ul>
-</div>
-{% elif ferramenta == 'SEGREGAR' %}
-<div class="alert-success-customize msg-segregar">
-    <ul class="messages">
-        <li class="alert-tool-message">{{ ferramenta|title }}</li>
-    </ul>
-</div>
-{% else %}
-<div class="alert-success-customize">
-    <ul class="messages">
-        <li class="alert-tool-message">{{ ferramenta|title }}</li>
-    </ul>
-</div>
-{% endif %}
-{% endwith %}
-{% endif %}
-{% endfor %}
-
-{% if messages %}
-{% if 'error' in messages.0.tags %}
-<div class="alert-error-message">
-    <ul class="messages">
-        <li>{{ messages.0 }}</li>
-    </ul>
-</div>
-{% elif 'warning' in messages.0.tags %}
-<div class="alert-warning-message">
-    <ul class="messages">
-        <li>{{ messages.0 }}</li>
-    </ul>
-</div>
-{% elif 'success' in messages.0.tags %}
-<div class="alert-error-custom">
-    <ul class="messages">
-        <li>{{ messages.0 }}</li>
-    </ul>
-</div>
-{% endif %}
-{% endif %}
-
-
-<div class="centraliza-bipagem">
-    <div class="scroll-tabela-bipagem">
-        <table class="tabela-bipagem">
-            <thead>
-                <tr>
-                    <th>ID Bipagem</th>
-                    <th>Quantidade</th>
-                    <th>Serial</th>
-                    <th>Modelo</th>
-                    <th>Status</th>
-                    <th>Ação</th>
-                    <th>Observação</th>
-                    {% if is_gerente_pa and not is_visualizador_master %}
-                    <th>Comentários</th>
-                    <th>Ações</th>
-                    {% endif %}
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in page_obj %}
-                <tr>
-                    <td>#{{ item.id_caixa.nr_caixa }}</td>
-                    <td>#{{ item.unidade }}</td>
-                    <td>{{ item.nrserie }}</td>
-                    <td>{{ item.modelo }}</td>
-                    <td>{{ item.estado }}</td>
-                    <td>
-                        {{ item.mensagem_ferramenta_inv }}
-                    </td>
-                    <td>{{ item.observacao }}</td>
-                    {% if is_gerente_pa and not is_visualizador_master %}
-                    <td>{{ item.comentarios|default:"—"}}</td>
-                    <td>
-                        {% if caixa.status != 'Finalizada' %}
-                        <div class="icon-actions">
-                            <a href="{% url 'inventario:caixa' lote.id caixa.id %}?edit_serial={{ item.id }}">
-                                <button type="button"><i class="fa-solid fa-pencil"></i></button>
-                            </a>
-                            <form method="post" action="{% url 'inventario:excluir_serial' item.id %}"
-                                style="display:inline;">
-                                {% csrf_token %}
-                                <button type="submit" onclick="return confirm('Deseja excluir este serial?')">
-                                    <i class="fa-solid fa-trash"></i>
-                                </button>
-                            </form>
-                        </div>
-                        {% else %}
-                        <span class="badge-fechado">—</span>
+    <div class="centraliza-bipagem">
+        <div class="scroll-tabela-bipagem">
+            <table class="tabela-bipagem">
+                <thead>
+                    <tr>
+                        <th>ID Bipagem</th>
+                        <th>Quantidade</th>
+                        <th>Serial</th>
+                        <th>Modelo</th>
+                        <th>Status</th>
+                        <th>Ação</th>
+                        <th>Observação</th>
+                        {% if is_gerente_pa and not is_visualizador_master %}
+                        <th>Comentários</th>
+                        <th>Ações</th>
                         {% endif %}
-                    </td>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in page_obj %}
+                    <tr>
+                        <td>#{{ item.id_caixa.nr_caixa }}</td>
+                        <td>#{{ item.unidade }}</td>
+                        <td>{{ item.nrserie }}</td>
+                        <td>{{ item.modelo }}</td>
+                        <td>{{ item.estado|default:"—" }}</td>
+                        <td>{{ item.mensagem_ferramenta_inv }}</td>
+                        <td>{{ item.observacao }}</td>
+                        {% if is_gerente_pa and not is_visualizador_master %}
+                        <td>{{ item.comentarios|default:"—"}}</td>
+                        <td>
+                            {% if caixa.status != 'Finalizada' %}
+                            <div class="icon-actions">
+                                <a href="{% url 'inventario:caixa' lote.id caixa.id %}?edit_serial={{ item.id }}">
+                                    <button type="button"><i class="fa-solid fa-pencil"></i></button>
+                                </a>
+                                <form method="post" action="{% url 'inventario:excluir_serial' item.id %}"
+                                    style="display:inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" onclick="return confirm('Deseja excluir este serial?')">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                            {% else %}
+                            <span class="badge-fechado">—</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="paginacao-lotes">
+                {% if page_obj.has_other_pages %}
+                <div class="pagination-wrapper">
+                    {% if page_obj.has_previous %}
+                    <a href="?page=1" class="pagination-link">« Primeira</a>
+                    <a href="?page={{ page_obj.previous_page_number }}" class="pagination-link">‹</a>
                     {% endif %}
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <div class="paginacao-lotes">
-            {% if page_obj.has_other_pages %}
-            <div class="pagination-wrapper">
-                {% if page_obj.has_previous %}
-                <a href="?page=1" class="pagination-link">« Primeira</a>
-                <a href="?page={{ page_obj.previous_page_number }}" class="pagination-link">‹</a>
-                {% endif %}
 
-                {% for num in page_obj.paginator.page_range %}
-                {% if num == page_obj.number %}
-                <span class="pagination-link active">{{ num }}</span>
-                {% elif num >= page_obj.number|add:-2 and num <= page_obj.number|add:2 %} <a href="?page={{ num }}"
-                    class="pagination-link">{{ num }}</a>
+                    {% for num in page_obj.paginator.page_range %}
+                    {% if num == page_obj.number %}
+                    <span class="pagination-link active">{{ num }}</span>
+                    {% elif num >= page_obj.number|add:-2 and num <= page_obj.number|add:2 %}
+                    <a href="?page={{ num }}" class="pagination-link">{{ num }}</a>
                     {% endif %}
                     {% endfor %}
 
@@ -168,46 +102,165 @@
                     <a href="?page={{ page_obj.next_page_number }}" class="pagination-link">›</a>
                     <a href="?page={{ page_obj.paginator.num_pages }}" class="pagination-link">Última »</a>
                     {% endif %}
+                </div>
+                {% endif %}
             </div>
-            {% endif %}
         </div>
-    </div>
 
-    {% if mensagem.encerrar == True and not is_visualizador_master %}
-    <div class="encerrar-bipagem">
-        <h2>Finalização</h2>
-        <form method="post" class="encerrar" action="{% url 'inventario:caixa' lote.id caixa.id %}">
-            {% csrf_token %}
-            <button type="submit" name="encerrar_caixa" class="finalizar-bipagem">Encerrar Bipagem</button>
-        </form>
+        {% if mensagem.encerrar == True and not is_visualizador_master %}
+        <div class="encerrar-bipagem">
+            <h2>Finalização</h2>
+            <form method="post" class="encerrar" action="{% url 'inventario:caixa' lote.id caixa.id %}">
+                {% csrf_token %}
+                <button type="submit" name="encerrar_caixa" class="finalizar-bipagem">Encerrar Bipagem</button>
+            </form>
+        </div>
+        {% else %}
+        <div class="encerrar-bipagem">
+            <form class="encerrar" action="{% url 'inventario:lote' lote.id %}">
+                {% csrf_token %}
+                <button type="submit" name="encerrar_caixa" class="finalizar-bipagem">Voltar</button>
+            </form>
+        </div>
+        {% endif %}
     </div>
-    {% else %}
-    <div class="encerrar-bipagem">
-        <form class="encerrar" action="{% url 'inventario:lote' lote.id %}">
-            {% csrf_token %}
-            <button type="submit" name="encerrar_caixa" class="finalizar-bipagem">Voltar</button>
-        </form>
-    </div>
-    {% endif %}
 </div>
 
 <script>
     const modoEdicao = JSON.parse("{{ modo_edicao|yesno:'true,false'|lower }}");
+    const modoSelecaoModelo = JSON.parse("{{ modo_selecao_modelo|yesno:'true,false'|lower }}");
+    const modoBipagem = JSON.parse("{{ modo_bipagem|yesno:'true,false'|lower }}");
     const podeDigitar = JSON.parse("{{ pode_digitar|yesno:'true,false'|lower }}");
 
+    function nomeBotaoSubmit(submitter) {
+        if (submitter && submitter.name) {
+            return submitter.name;
+        }
+        const active = document.activeElement;
+        if (active && active.name) {
+            return active.name;
+        }
+        return '';
+    }
+
+    function isAcaoSemSerial(nome) {
+        return nome === 'trocar_modelo' || nome === 'confirmar_modelo' || nome === 'encerrar_caixa';
+    }
+
+    function normalizarSerial(val) {
+        return (val || '').trim().toUpperCase().slice(-18);
+    }
+
+    function getCookie(name) {
+        const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const match = document.cookie.match(new RegExp('(?:^|; )' + escaped + '=([^;]*)'));
+        return match ? decodeURIComponent(match[1]) : null;
+    }
+
+    function deleteCookie(name) {
+        document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    }
+
+    function lockBipagemForm(serialInput, inserirBtn, trocarBtn) {
+        if (serialInput) {
+            serialInput.readOnly = true;
+            serialInput.style.pointerEvents = 'none';
+        }
+        if (inserirBtn) {
+            inserirBtn.disabled = true;
+        }
+        if (trocarBtn) {
+            trocarBtn.disabled = true;
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
+        const form = document.querySelector('.form-1col');
         const serialInput = document.getElementById('serial-input');
-        const modeloInput = document.getElementById('modelo-input');
         const clearButton = document.getElementById('clear-button');
         const inserirBtn = document.getElementById('inserir-button');
-        const consultarBtn = document.querySelector('button[name="buscar_dados"]');
-        const modeloAuto = inserirBtn?.getAttribute('data-modelo-autocompletado');
+        const trocarBtn = document.getElementById('trocar-modelo-button');
 
+        let ultimoSerialProcessado = null;
         let buffer = '';
         let lastInputTime = Date.now();
         const INTERVALO_MAXIMO = 250;
 
-        if (serialInput && !modoEdicao && !podeDigitar) {
+        const ultimoSerialCookie = getCookie('ultimo_serial');
+        if (ultimoSerialCookie) {
+            ultimoSerialProcessado = normalizarSerial(ultimoSerialCookie);
+            deleteCookie('ultimo_serial');
+        }
+
+        function focarSerialInput() {
+            if (!serialInput || modoEdicao || modoSelecaoModelo || !modoBipagem) {
+                return;
+            }
+
+            const aplicarFoco = () => serialInput.focus({ preventScroll: true });
+
+            aplicarFoco();
+            requestAnimationFrame(aplicarFoco);
+            setTimeout(aplicarFoco, 0);
+            setTimeout(aplicarFoco, 50);
+        }
+
+        function serialConsecutivoDuplicado(serial) {
+            const normalizado = normalizarSerial(serial);
+            return Boolean(normalizado && normalizado === ultimoSerialProcessado);
+        }
+
+        function limparInputSerial() {
+            buffer = '';
+            if (!serialInput) {
+                return;
+            }
+            serialInput.value = '';
+            if (!podeDigitar && !modoEdicao && !modoSelecaoModelo) {
+                serialInput.setAttribute('readonly', 'readonly');
+                serialInput.style.color = 'transparent';
+                serialInput.style.textShadow = '0 0 0 gray';
+            }
+            focarSerialInput();
+        }
+
+        function aplicarSerialNormalizado(serial) {
+            const normalizado = normalizarSerial(serial);
+            if (!normalizado) {
+                return null;
+            }
+
+            if (serialInput) {
+                serialInput.removeAttribute('readonly');
+                serialInput.readOnly = false;
+                serialInput.style.pointerEvents = '';
+                serialInput.value = normalizado;
+            }
+
+            return normalizado;
+        }
+
+        if (form && modoBipagem) {
+            form.addEventListener('submit', function (e) {
+                const nomeSubmit = nomeBotaoSubmit(e.submitter);
+
+                if (isAcaoSemSerial(nomeSubmit)) {
+                    return;
+                }
+
+                const normalizado = aplicarSerialNormalizado(serialInput ? serialInput.value : '');
+                if (!normalizado || serialConsecutivoDuplicado(normalizado)) {
+                    e.preventDefault();
+                    limparInputSerial();
+                    return;
+                }
+
+                ultimoSerialProcessado = normalizado;
+                lockBipagemForm(serialInput, inserirBtn, trocarBtn);
+            });
+        }
+
+        if (serialInput && modoBipagem && !podeDigitar) {
             serialInput.setAttribute('readonly', 'readonly');
             serialInput.setAttribute('autocomplete', 'off');
             serialInput.value = '';
@@ -234,16 +287,16 @@
                     buffer = '';
 
                     if (serial.length > 0) {
-                        serialInput.removeAttribute('readonly');
-                        serialInput.value = serial;
-                        serialInput.setAttribute('readonly', 'readonly');
-                        sessionStorage.setItem('serialConsultado', 'true');
-                        sessionStorage.setItem('ultimoSerialConsultado', serial);
-
-                        const form = serialInput.closest('form');
-                        const consultar = form.querySelector('button[name="buscar_dados"]');
-                        if (consultar) {
-                            consultar.click();
+                        const normalizado = normalizarSerial(serial);
+                        if (serialConsecutivoDuplicado(normalizado)) {
+                            limparInputSerial();
+                        } else if (normalizado) {
+                            aplicarSerialNormalizado(serial);
+                            if (inserirBtn) {
+                                form.requestSubmit(inserirBtn);
+                            } else {
+                                form.submit();
+                            }
                         }
                     }
                 } else if (e.key.length === 1) {
@@ -254,71 +307,16 @@
             });
         }
 
-        // Botão Limpar
+        const focoSerial = getCookie('foco_serial');
+        if (focoSerial === 'true') {
+            deleteCookie('foco_serial');
+            focarSerialInput();
+        }
+
         if (clearButton) {
             clearButton.addEventListener('click', () => {
-                sessionStorage.clear();
                 window.location.href = window.location.pathname;
             });
-        }
-
-        // Inserir
-        if (inserirBtn) {
-            inserirBtn.addEventListener('click', () => {
-                sessionStorage.setItem('focoDepoisInserir', 'true');
-            });
-        }
-
-        // Campo modelo bloqueado se preenchido
-        if (modeloInput) {
-            if (modeloInput.value.trim()) {
-                modeloInput.setAttribute('readonly', 'readonly');
-                ['paste', 'drop', 'contextmenu', 'copy', 'cut', 'keydown'].forEach(evt =>
-                    modeloInput.addEventListener(evt, e => e.preventDefault())
-                );
-            } else {
-                modeloInput.removeAttribute('readonly');
-            }
-        }
-
-        // Lógica de foco e restauração
-        const focoDepoisInserir = sessionStorage.getItem('focoDepoisInserir');
-        const focoSerialCookie = document.cookie.includes('foco_serial=true');
-        const limparTudo = sessionStorage.getItem('limparTudo');
-        const serialConsultado = sessionStorage.getItem('serialConsultado');
-        const ultimoSerial = sessionStorage.getItem('ultimoSerialConsultado');
-
-        if (limparTudo === 'true') {
-            sessionStorage.removeItem('limparTudo');
-            consultarBtn?.focus();
-        } else if (focoDepoisInserir === 'true') {
-            sessionStorage.removeItem('focoDepoisInserir');
-            serialInput?.focus();
-        } else if (focoSerialCookie) {
-            document.cookie = 'foco_serial=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-            serialInput?.focus();
-        } else if (serialConsultado === 'true') {
-            sessionStorage.removeItem('serialConsultado');
-
-            if (modeloAuto === 'true') {
-                // Se o modelo foi preenchido automaticamente: limpa o serial e foca no botão inserir
-                serialInput.removeAttribute('readonly');
-                serialInput.value = '';
-                serialInput.setAttribute('readonly', 'readonly');
-                inserirBtn?.focus();
-                sessionStorage.removeItem('ultimoSerialConsultado');
-            } else {
-                // Modelo não encontrado: restaura o serial e foca no campo modelo
-                if (ultimoSerial) {
-                    serialInput.removeAttribute('readonly');
-                    serialInput.value = ultimoSerial;
-                    serialInput.setAttribute('readonly', 'readonly');
-                    sessionStorage.removeItem('ultimoSerialConsultado');
-
-                    modeloInput?.removeAttribute('readonly');
-                    setTimeout(() => modeloInput?.focus(), 100);
-                }
-            }
         }
     });
 </script>

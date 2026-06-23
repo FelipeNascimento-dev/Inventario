@@ -1,0 +1,79 @@
+:root {
+    /* Vermelho principal */
+    --red-900: #7f1d1d;
+    --red-800: #991b1b;
+    --red-700: #b91c1c;
+    --red-600: #c62828;
+    --red-500: #d32f2f;
+    --red-400: #e53935;
+    --red-300: #ef5350;
+    --red-200: #ef9a9a;
+    --red-100: #fce4ec;
+    --red-50: #fff5f5;
+
+    /* Semânticas */
+    --color-primary: var(--red-600);
+    --color-primary-hover: var(--red-700);
+    --color-primary-active: var(--red-800);
+    --color-primary-light: var(--red-200);
+    --color-primary-soft: var(--red-50);
+
+    --color-bg-page: var(--red-50);
+    --color-bg-surface: #ffffff;
+    --color-bg-muted: #fceaea;
+    --color-bg-input: #fff8f8;
+
+    --color-border: var(--red-200);
+    --color-border-strong: #e57373;
+    --color-border-focus: var(--red-400);
+
+    --color-text: #4a2020;
+    --color-text-muted: #8b4545;
+    --color-text-heading: var(--red-800);
+    --color-text-on-primary: #ffffff;
+    --color-text-link: var(--red-700);
+
+    --color-success-bg: #fde8e8;
+    --color-success-text: var(--red-800);
+    --color-success-border: var(--red-200);
+
+    --color-error-bg: #fdecea;
+    --color-error-text: #9b1c1c;
+    --color-error-border: #f5c6c6;
+
+    --color-warning-bg: #fff8e6;
+    --color-warning-text: #8a5a00;
+    --color-warning-border: #ffe082;
+
+    --color-info-bg: #fce4ec;
+    --color-info-text: var(--red-800);
+    --color-info-border: var(--red-200);
+
+    /* Navbar */
+    --navbar-height: 100px;
+    --navbar-bg: #ffffff;
+    --navbar-bg-soft: #fff8f8;
+    --navbar-border: var(--red-200);
+    --navbar-text: var(--red-800);
+    --navbar-text-hover: var(--red-700);
+    --navbar-hover: rgba(198, 40, 40, 0.08);
+    --navbar-hover-strong: rgba(198, 40, 40, 0.14);
+
+    /* Tipografia */
+    --font-family: 'Roboto', sans-serif;
+
+    /* Raios */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --radius-xl: 18px;
+
+    /* Sombras */
+    --shadow-sm: 0 2px 8px rgba(198, 40, 40, 0.08);
+    --shadow-md: 0 4px 16px rgba(198, 40, 40, 0.12);
+    --shadow-lg: 0 4px 24px rgba(198, 40, 40, 0.16);
+
+    /* Transição */
+    --transition-fast: 0.15s ease;
+    --transition-base: 0.2s ease;
+}

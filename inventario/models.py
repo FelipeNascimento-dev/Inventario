@@ -45,18 +45,18 @@ class Bipagem(models.Model):
     nrserie = models.CharField(max_length=50)
     criado_em = models.DateTimeField(auto_now_add=True)
     modelo = models.CharField(max_length=100, null=True)
+    ESTADO_CHOICES = [
+        ('GOOD', 'GOOD'),
+        ('BAD', 'BAD'),
+        ('TRIAGEM', 'TRIAGEM'),
+        ('OBSOLETO', 'OBSOLETO'),
+        ('KIT GOOD', 'KIT GOOD'),
+    ]
+    estado = models.CharField(max_length=100, choices=ESTADO_CHOICES, blank=True, null=True)
     patrimonio = models.CharField(max_length=100, null=True)
     mensagem_ferramenta_inv = models.CharField(max_length=255, blank=True, null=True)
     observacao = models.CharField(max_length=255, blank=True, null=True)
     comentarios = models.CharField(max_length=250, blank=True, null=True)
-
-    ESTADO_CHOICES = [
-        ('GOOD', 'GOOD'),
-        ('BAD', 'BAD'),
-        ('OBSOLETO', 'OBSOLETO'),
-        ('TRIAGEM', 'TRIAGEM'),
-    ]
-    estado = models.CharField(max_length=100, choices=ESTADO_CHOICES, null=True, blank=True)
 
 class Serial(models.Model):
     codigo = models.CharField(max_length=100, unique=True)

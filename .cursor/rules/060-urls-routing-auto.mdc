@@ -1,0 +1,30 @@
+---
+description: Regras para urls.py e organização de rotas Django.
+globs: "**/urls.py,setup/urls.py"
+alwaysApply: false
+---
+
+# URLs e rotas Django
+
+Ao criar ou alterar rotas:
+
+## Regras
+- Usar nomes de rotas (`name="..."`) claros e estáveis.
+- Evitar duplicidade de nomes.
+- Agrupar URLs por app.
+- Não colocar regra de negócio em `urls.py`.
+- Se criar nova view, adicionar rota correspondente no app correto.
+
+## Padrão recomendado
+
+```python
+urlpatterns = [
+    path("minha-rota/", minha_view, name="minha_rota"),
+]
+```
+
+## Cuidados
+
+- Verificar templates que usam `{% url 'nome_rota' %}` antes de renomear rotas.
+- Evitar quebrar links existentes.
+- Em projeto legado, preferir adicionar novas rotas sem alterar nomes antigos, salvo solicitação explícita.

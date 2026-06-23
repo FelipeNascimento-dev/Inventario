@@ -1,0 +1,39 @@
+---
+description: Regras para models, relacionamentos e migrations Django.
+globs: "**/models.py,**/migrations/**/*.py"
+alwaysApply: false
+---
+
+# Models Django
+
+Ao criar ou alterar models:
+
+## Models devem conter
+- Campos da tabela.
+- Relacionamentos (`ForeignKey`, `ManyToManyField`, `OneToOneField`).
+- `verbose_name` e `verbose_name_plural` quando fizer sentido.
+- `__str__` claro e seguro.
+- Choices quando aplicável.
+- Constraints simples e índices quando necessário.
+
+## Models não devem conter
+- Regras grandes de view.
+- Integrações externas.
+- Geração de arquivos complexos.
+- Filtros de tela específicos.
+- Lógica extensa de permissão.
+
+## Migrations
+
+- Não editar migrations antigas sem necessidade.
+- Para mudança nova, gerar nova migration.
+- Se a alteração envolver dados existentes, avaliar `RunPython` ou plano de migração.
+- Em projeto legado, verificar se há migrations duplicadas/merge antes de propor alteração grande.
+
+## User, Group, GAI e UserDesignation
+
+Se a alteração envolver usuário, grupo, cliente, PA ou permissões, consultar também a rule:
+
+```text
+080-auth-gai-userdesignation-always.mdc
+```

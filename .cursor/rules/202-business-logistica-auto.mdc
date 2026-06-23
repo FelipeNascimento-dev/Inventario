@@ -1,0 +1,52 @@
+---
+description: Regras de negócio confirmadas do app logistica (last mile, estoque, reversa, check-in, fulfillment).
+globs: "logistica/**/*.py,logistica/**/templates/**/*.html"
+alwaysApply: false
+---
+
+# Logística — regras de negócio (confirmado)
+
+## Arquitetura
+
+- Camada Django **fina**; romaneio, reversa, estoque e tracking usam APIs externas (`STOCK_API_URL`, `API_URL` em `setup/local_settings.py`).
+- Modelos locais `Romaneio`, `ItemRomaneio`, `RomaneioReverse` existem, mas fluxos operacionais atuais chamam a Stock API — não persistir romaneio novo só no ORM local sem alinhar com o padrão existente.
+- **Reversa V1** (`/arancia/reverse/`) e **V2** (`/arancia/reversa/`) **coexistem em produção**. Não depreciar nem migrar uma para outra sem solicitação explícita.
+
+## Permissões por domínio
+
+| Domínio | Permissões típicas |
+|---------|-------------------|
+| Last mile, estoque, remessa, receber em estoque | `logistica.lastmile_b2c` + `acesso_arancia` |
+| Check-in/out (início) | `logistica.checkin_principal` + `acesso_arancia` |
+| Fulfillment SAP | `logistica.entrada_flfm` + `acesso_arancia` |
+| Destinos Flex na reversa (form) | `logistica.reverse` |
+| Gestão usuários/skills | `logistica.gestao_total` |
+| Estoque multi-PA | `logistica.gerente_estoque` ou GAI próprio |
+
+## Escopo por GAI (padrões recorrentes)
+
+- **Reversa / romaneio V2:** `location_id` = GAI da designação; se `sales_channel == 'all'` → `location_id = 0`.
+- **Origem PA/CD escolhível:** só com `gestao_total` (ou `sales_channel == 'all'` onde a view já trata).
+- **Reverse form:** origem travada no GAI do usuário quando `sales_channel != "all"`; destinos Flex só com `reverse`.
+- **Recebimento remessa:** destino = GAI do usuário; se `sales_channel == 'all'`, todos os destinos `arancia_PA`.
+- **Gerenciamento estoque:** `gerente_estoque` vê GAIs `arancia_pa`; demais só o próprio GAI.
+- **Consulta pedidos:** `pode_gerenciar_filiais` → todos os channels; senão channel do GAI se grupo for `arancia_PA`.
+- **Fluxo entrega (reserva/saída):** `deposito` e `cod_center` do GAI da designação.
+
+## Check-in
+
+- Roteamento: cliente **`cielo`** + vetor **`OUT`** → checkout reverse; demais IN → check-in, OUT → checkout reverse (`view_checkin_iniciar.py`).
+- Lista de clientes vem de `STOCK_API_URL/v1/clients/` (não filtrada por GAI no Django — padrão legado).
+- Campo produto visível para: superuser, `full_checkin`, ou GAI nome `"ctb tatuapé 81"`.
+
+## Ao alterar ou criar telas
+
+- Manter `@login_required` + `@permission_required('logistica.acesso_arancia')` como baseline.
+- Empilhar permissão de domínio conforme tabela acima.
+- Enviar `location_id` / `from_location_id` / `to_location_id` derivados do GAI quando a API exigir.
+- Consultar view existente do mesmo fluxo (V1 ou V2) antes de inventar novo padrão de escopo.
+
+## Proibido
+
+- Depreciar reversa V1 ou V2 unilateralmente.
+- Expor romaneio/reversa de outros PAs sem elevação (`gestao_total`, `sales_channel == 'all'`, `gerente_estoque`, etc.).

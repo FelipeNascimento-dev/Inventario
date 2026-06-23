@@ -1,0 +1,35 @@
+---
+description: Regras para templates, partials, static files e organização visual Django.
+globs: "**/templates/**/*.html,**/base_templates/**/*.html,**/base_static/**/*"
+alwaysApply: false
+---
+
+# Templates e arquivos estáticos
+
+## Templates devem
+- Usar herança (`extends`) e blocos quando possível.
+- Reaproveitar partials para cards, modais, tabelas e menus.
+- Manter lógica complexa fora do HTML.
+- Usar template tags/filters apenas para formatação simples.
+- Preservar classes CSS já utilizadas no projeto.
+
+## Evitar
+- Duplicar grandes blocos HTML.
+- Esconder regra de negócio em `{% if %}` muito complexos.
+- Colocar JavaScript grande inline quando puder ser separado.
+- Quebrar compatibilidade visual de telas existentes.
+
+## Partialização
+
+Quando uma tela tiver muitos blocos, preferir separar em partials como:
+
+```text
+templates/app/partials/_cards.html
+templates/app/partials/_filters.html
+templates/app/partials/_table.html
+templates/app/partials/_modal.html
+```
+
+## Segurança
+
+Nunca renderizar conteúdo externo sem avaliar escape/sanitização. Evitar `|safe` sem justificativa clara.

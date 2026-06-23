@@ -1,0 +1,36 @@
+---
+description: Regras para testes Django.
+globs: "**/tests.py,**/tests/**/*.py"
+alwaysApply: false
+---
+
+# Testes Django
+
+Ao criar ou alterar funcionalidades, avaliar testes para:
+
+- models;
+- forms;
+- views;
+- permissions;
+- services;
+- regras GAI/UserDesignation;
+- templates críticos;
+- integrações mockadas.
+
+## Padrão recomendado
+
+```text
+app/tests/test_models.py
+app/tests/test_forms.py
+app/tests/test_views.py
+app/tests/test_services.py
+```
+
+Se o projeto ainda usa `tests.py`, manter compatibilidade, mas preferir pasta `tests/` em novos módulos.
+
+## Cuidados
+
+- Não depender de dados reais de produção.
+- Criar usuários, grupos, GAI e UserDesignation nos testes quando a regra depender disso.
+- Testar usuário comum e usuário gerencial quando houver diferença de escopo.
+- Mockar chamadas externas.

@@ -1,0 +1,36 @@
+---
+description: Regras globais de segurança para Django, settings, secrets e permissões.
+globs: "**/*"
+alwaysApply: true
+---
+
+# Segurança e configurações
+
+## Nunca gerar ou versionar
+
+- senhas reais;
+- tokens reais;
+- SECRET_KEY real;
+- credenciais de banco;
+- certificados/chaves privadas;
+- dados pessoais sensíveis reais;
+- dumps de produção.
+
+## Settings
+
+- Usar variáveis de ambiente para segredos.
+- Evitar hardcode em `settings.py` e `local_settings.py`.
+- Não alterar `DEBUG`, `ALLOWED_HOSTS`, banco ou middleware sem explicar impacto.
+- Em projeto legado, preservar configurações existentes salvo solicitação explícita.
+
+## Views e templates
+
+- Validar autenticação e autorização.
+- Evitar expor dados de outros clientes/GAIs.
+- Evitar `|safe` sem necessidade.
+- Validar uploads.
+- Evitar logs com dados sensíveis.
+
+## CSRF
+
+Não remover proteção CSRF sem justificativa clara e segura.

@@ -1,0 +1,37 @@
+---
+description: Contexto global para projetos Django legados ou semi-estruturados da C-Trends/Arancia.
+globs: "**/*"
+alwaysApply: true
+---
+
+# Contexto geral do projeto Django
+
+Este projeto segue um padrão Django com apps como `logistica`, `transportes`, `backoffice`, `usuarios` e configurações em `setup/`.
+
+O código pode conter estrutura legada, com regras de negócio em `views.py`, `views/`, `forms/`, templates e utilitários. Ao alterar ou criar funcionalidades, o Cursor deve preservar compatibilidade e evitar refatorações bruscas sem solicitação explícita.
+
+## Objetivo das rules
+
+- Melhorar a organização gradualmente.
+- Evitar quebrar fluxos existentes.
+- Separar responsabilidades sempre que possível.
+- Preservar regras de negócio já existentes.
+- Manter autenticação, permissões, GAI e UserDesignation consistentes.
+
+## Fluxo recomendado
+
+Para novas funcionalidades, prefira:
+
+```text
+URL -> View -> Form/Service -> Model/Query -> Template/Response
+```
+
+Para regras mais complexas, prefira:
+
+```text
+View -> Service -> Model/Query/Integração
+```
+
+## Regra de ouro
+
+Views não devem crescer indefinidamente. Sempre que uma view tiver muita regra de negócio, validação complexa, chamadas externas, geração de arquivos, filtros grandes ou várias consultas encadeadas, avaliar extração para `services/`, `utils/` ou camada específica do app.
