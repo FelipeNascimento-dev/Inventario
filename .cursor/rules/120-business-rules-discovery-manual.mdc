@@ -1,0 +1,40 @@
+---
+description: Rule manual para descobrir regras de negócio em projeto Django existente e gerar novas rules específicas.
+globs: "**/*"
+alwaysApply: false
+---
+
+# Descoberta manual de regras de negócio
+
+Esta rule deve ser chamada manualmente quando o usuário quiser analisar um projeto Django já em andamento.
+
+## Objetivo
+
+Analisar o diretório do projeto para identificar regras de negócio principais e criar novas rules específicas que ajudem o Cursor a não descumprir essas regras em novos endpoints, views, forms, templates ou services.
+
+## Processo obrigatório
+
+1. Analisar apps, models, views, forms, templates, urls, services, utils e docs.
+2. Identificar módulos principais.
+3. Separar regras confirmadas pelo código de regras apenas inferidas.
+4. Fazer perguntas objetivas ao usuário.
+5. Registrar descobertas em `.cursor/business-rules/discovered-rules.md`.
+6. Registrar dúvidas em `.cursor/business-rules/pending-questions.md`.
+7. Registrar decisões em `.cursor/business-rules/decisions.md`.
+8. Após confirmação, propor novas rules em `.cursor/rules/2xx-business-<dominio>-auto.mdc`.
+9. Atualizar README e release notes quando necessário.
+
+## Regras de negócio conhecidas que devem ser verificadas
+
+- Relação entre User, Group, GAI e UserDesignation.
+- Diferença entre usuário comum, usuário gerencial, superusuário e grupos especiais.
+- Escopo por cliente/PA/GAI.
+- Fluxos de logística, transporte e backoffice.
+- Permissões por tela/botão/ação.
+- Filtros obrigatórios por usuário/designação.
+
+## Proibido
+
+- Criar rule de negócio baseada apenas em suposição sem indicar que precisa de confirmação.
+- Alterar código durante a etapa inicial de análise sem autorização.
+- Substituir rules ativas por documentação em README.

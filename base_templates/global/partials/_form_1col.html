@@ -1,36 +1,113 @@
 <h2 class="form-title">{{ form.nome_formulario }}</h2>
 {% csrf_token %}
 
-{% for campo in form %}
-
-{% if campo.name == 'modelo' %}
-
-<div class="form-group-1col">
-  {{ campo.label_tag }}
-  {{ campo }}
-</div>
-<div class="form-group-1col">
-  <label for="serial-input">Número Serial:</label>
-  <input type="text" id="serial-input" name="serial" class="form-control" autocomplete="off" required />
-</div>
-
-{% else %}
-
-<div class="form-group-1col">
-  {{ campo.label_tag }}
-  {{ campo }}
-  {% if campo.errors %}
-
-    <div class="error">{{ campo.errors }}</div>
-
-  {% endif %}
-</div>
-
+{# Campo oculto para edição #}
+{% if modo_edicao and serial_editando %}
+  <input type="hidden" name="edit_id" value="{{ serial_editando }}">
 {% endif %}
 
-{% endfor %}
+{% if modo_edicao %}
+  <div class="form-group-1col">
+    {{ form.serial.label_tag }}
+    {{ form.serial }}
+    {% if form.serial.errors %}
+      <div class="error">{{ form.serial.errors }}</div>
+    {% endif %}
+  </div>
 
-<div class="button-group">
-  <button type="submit" class="bipagem-button">Inserir</button>
-  <button type="button" id="clear-button" class="bipagem-button-clear">Limpar</button>
-</div>
+  <div class="form-group-1col">
+    {{ form.modelo.label_tag }}
+    {{ form.modelo }}
+    {% if form.modelo.errors %}
+      <div class="error">{{ form.modelo.errors }}</div>
+    {% endif %}
+  </div>
+
+  <div class="form-group-1col">
+    {{ form.comentarios.label_tag }}
+    {{ form.comentarios }}
+    {% if form.comentarios.errors %}
+      <div class="error">{{ form.comentarios.errors }}</div>
+    {% endif %}
+  </div>
+
+  <div class="button-group">
+    <button id="inserir-button" type="submit" class="btn-editar">
+      Salvar Edição
+    </button>
+    <button type="button" id="clear-button" class="bipagem-button-clear">Limpar</button>
+  </div>
+
+{% elif modo_selecao_inicial %}
+  <div class="form-group-1col">
+    {{ form.estado.label_tag }}
+    {{ form.estado }}
+    {% if form.estado.errors %}
+      <div class="error">{{ form.estado.errors }}</div>
+    {% endif %}
+  </div>
+
+  <div class="form-group-1col">
+    {{ form.modelo.label_tag }}
+    {{ form.modelo }}
+    {% if form.modelo.errors %}
+      <div class="error">{{ form.modelo.errors }}</div>
+    {% endif %}
+  </div>
+
+  <input type="hidden" name="serial" value="">
+
+  <div class="button-group">
+    <button type="submit" name="confirmar_modelo" class="bipagem-button">Confirmar</button>
+    <button type="button" id="clear-button" class="bipagem-button-clear">Limpar</button>
+  </div>
+
+{% elif modo_selecao_modelo %}
+  <div class="form-group-1col">
+    <label>Status</label>
+    <input type="text" class="campo-bloqueado" value="{{ estado_selecionado_display }}" readonly>
+    <input type="hidden" name="estado" value="{{ estado_selecionado }}">
+    <small class="campo-bloqueado-hint">O status não pode ser alterado nesta caixa.</small>
+  </div>
+
+  <div class="form-group-1col">
+    {{ form.modelo.label_tag }}
+    {{ form.modelo }}
+    {% if form.modelo.errors %}
+      <div class="error">{{ form.modelo.errors }}</div>
+    {% endif %}
+  </div>
+
+  <input type="hidden" name="serial" value="">
+
+  <div class="button-group">
+    <button type="submit" name="confirmar_modelo" class="bipagem-button">Confirmar modelo</button>
+    <button type="button" id="clear-button" class="bipagem-button-clear">Limpar</button>
+  </div>
+
+{% else %}
+  <div class="form-group-1col">
+    <label>Status</label>
+    <input type="text" class="campo-bloqueado" value="{{ estado_selecionado_display }}" readonly>
+  </div>
+
+  <div class="form-group-1col">
+    <label>Modelo</label>
+    <input type="text" class="campo-bloqueado" value="{{ modelo_selecionado }}" readonly>
+    <input type="hidden" name="modelo" value="{{ modelo_selecionado }}">
+  </div>
+
+  <div class="form-group-1col">
+    {{ form.serial.label_tag }}
+    {{ form.serial }}
+    {% if form.serial.errors %}
+      <div class="error">{{ form.serial.errors }}</div>
+    {% endif %}
+  </div>
+
+  <div class="button-group">
+    <button id="inserir-button" type="submit" class="bipagem-button">Inserir</button>
+    <button id="trocar-modelo-button" type="submit" name="trocar_modelo" class="bipagem-button">Trocar modelo</button>
+    <button type="button" id="clear-button" class="bipagem-button-clear">Limpar</button>
+  </div>
+{% endif %}

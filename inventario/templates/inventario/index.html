@@ -14,20 +14,24 @@
             </div>
 
             <div class="botoes-lote">
-                {% if not is_visualizador_master %}
+                {% if not is_visualizador_master and not is_gerente_total %}
                 <form method="post" action="{% url 'inventario:criar_lote' %}" style="margin-bottom: 10px;">
                     {% csrf_token %}
                     <button type="submit" class="btn-novo-lote">Criar novo lote</button>
                 </form>
                 {% endif %}
-                {% if not is_visualizador_master %}
-                <a href="{% url 'inventario:download_extracao' %}" class="btn-novo-lote" target="_blank"
-                    style="text-decoration: none;">
-                    📄 Extrair laudo PDF
-                </a>
-                {% endif %}
             </div>
         </div>
+
+        {% if messages %}
+        <div class="alert-success-custom">
+            <ul class="messages">
+                {% for message in messages %}
+                <li class="{{ message.tags }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
 
         {% if lotes %}
         <div class="scroll-tabela-lotes">
@@ -38,7 +42,7 @@
                         <th>Criado em</th>
                         <th>Status</th>
                         <th>PA</th>
-                        <th>Usuário</th>
+                        <th>Torre</th>
                         <th>Ações</th>
                     </tr>
                 </thead>
@@ -48,7 +52,7 @@
                         <td>#{{ lote.numero_lote }}</td>
                         <td>{{ lote.criado_em|date:"d/m/Y H:i" }}</td>
                         <td>{{ lote.get_status_display }}</td>
-                        <td>{{ lote.group_user.name|slice:"7:" }}</td>
+                        <td>{{ lote.group_user.name }}</td>
                         <td>{{ lote.user_created }}</td>
                         <td>
                             {% if lote.get_status_display == "Aberto" %}
@@ -85,7 +89,7 @@
             </table>
         </div>
         {% else %}
-        <p style="text-align:center;color:#888;margin-top:40px;">Nenhum lote criado ainda.</p>
+        <p class="texto-vazio">Nenhum lote criado ainda.</p>
         {% endif %}
 
         <div class="paginacao-lotes">

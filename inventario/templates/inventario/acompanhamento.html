@@ -1,14 +1,156 @@
 {% extends 'global/base.html' %}
+{% load static %}
 
-{% block content %}    
+{% block content %}
 
-    {% if is_visualizador_master %}
-        <div class="container-iframe">
-            <iframe class="frame" title="Report Section" width="100%" height="100%"
-                    src="http://172.16.11.147:8501"
-                    frameborder="0" allowFullScreen="false">
-            </iframe>
+
+<div class="dash-page">
+    <div class="dash-header">
+        <h1><i class="fa-solid fa-chart-line"></i> Acompanhamento de Lotes</h1>
+        <div class="dash-header-actions">
+            <button type="button" id="btn-refresh" class="dash-btn dash-btn-secondary">
+                <i class="fa-solid fa-rotate"></i> Atualizar
+            </button>
         </div>
-    {% endif %}
+    </div>
 
+    <div id="dash-alert" class="dash-alert dash-alert-error" hidden></div>
+
+    <div class="dash-kpi-grid">
+        <div class="dash-kpi-card">
+            <div class="label">Torres (PAs)</div>
+            <div class="value" id="kpi-torres">—</div>
+        </div>
+        <div class="dash-kpi-card">
+            <div class="label">Total de Lotes</div>
+            <div class="value" id="kpi-lotes">—</div>
+        </div>
+        <div class="dash-kpi-card">
+            <div class="label">Total de Seriais</div>
+            <div class="value" id="kpi-seriais">—</div>
+        </div>
+        <div class="dash-kpi-card">
+            <div class="label">Lotes Fechados</div>
+            <div class="value" id="kpi-fechados">—</div>
+            <div class="sub">Percentual sobre o total</div>
+        </div>
+        <div class="dash-kpi-card">
+            <div class="label">Lotes Abertos</div>
+            <div class="value" id="kpi-abertos">—</div>
+        </div>
+        <div class="dash-kpi-card">
+            <div class="label">Lotes Invalidados</div>
+            <div class="value" id="kpi-invalidados">—</div>
+        </div>
+    </div>
+
+    <div class="dash-filters">
+        <div class="dash-filter-group">
+            <label for="filter-pa">Torre (PA)</label>
+            <select id="filter-pa">
+                <option value="">Todas as PAs</option>
+                {% for grupo in grupos_pa %}
+                <option value="{{ grupo.name }}">{{ grupo.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="dash-filter-group">
+            <label for="filter-status">Status do lote</label>
+            <select id="filter-status">
+                {% for value, label in status_lote %}
+                <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="dash-filter-group">
+            <label for="filter-limit">Registros por página</label>
+            <select id="filter-limit">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="dash-charts-grid">
+        <div class="dash-chart-card">
+            <h3>Distribuição por Status</h3>
+            <div class="dash-chart-wrap">
+                <canvas id="chart-status"></canvas>
+            </div>
+        </div>
+        <div class="dash-chart-card">
+            <h3>Top PAs por Volume de Lotes</h3>
+            <div class="dash-chart-wrap">
+                <canvas id="chart-pa"></canvas>
+            </div>
+        </div>
+        <div class="dash-chart-card wide">
+            <h3>Lotes por PA e Status</h3>
+            <div class="dash-chart-wrap">
+                <canvas id="chart-stacked"></canvas>
+            </div>
+        </div>
+        <div class="dash-chart-card wide">
+            <h3>Seriais Bipados por Usuário</h3>
+            <div class="dash-chart-wrap">
+                <canvas id="chart-usuario"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="dash-table-card">
+        <div class="dash-table-header">
+            <h3>Lotes — consulta paginada</h3>
+        </div>
+        <div class="dash-table-scroll">
+            <table class="dash-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Status</th>
+                        <th>PA</th>
+                        <th>Usuário</th>
+                    </tr>
+                </thead>
+                <tbody id="dash-table-body">
+                    <tr><td colspan="4" class="dash-empty">Carregando...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="dash-pagination">
+            <span class="dash-pagination-info" id="dash-table-meta">Carregando...</span>
+            <nav class="dash-pagination-nav" aria-label="Paginação da tabela">
+                <button type="button" id="dash-btn-prev" class="dash-page-btn" disabled aria-label="Página anterior">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <span class="dash-pagination-status">
+                    Página
+                    <input type="number" id="dash-page-input" min="1" value="1" aria-label="Número da página">
+                    de <strong id="dash-page-total">1</strong>
+                </span>
+                <button type="button" id="dash-btn-next" class="dash-page-btn" aria-label="Próxima página">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            </nav>
+        </div>
+    </div>
+</div>
+
+<div id="dash-loading" class="dash-loading-overlay">
+    <div class="dash-spinner"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+    window.ACOMPANHAMENTO_CONFIG = {
+        endpoints: {
+            lotes: "{% url 'inventario:acompanhamento_api_lotes' %}",
+            resumo: "{% url 'inventario:acompanhamento_api_resumo' %}",
+            quantidades: "{% url 'inventario:acompanhamento_api_quantidades' %}",
+            contagemUsuario: "{% url 'inventario:acompanhamento_api_contagem_usuario' %}",
+        },
+    };
+</script>
+<script src="{% static 'global/javascript/acompanhamento.js' %}"></script>
 {% endblock %}

@@ -52,6 +52,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'inventario.context_processors.permissoes_globais',
             ],
         },
     },
@@ -105,7 +106,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = 'inventario/static/'
 STATICFILES_DIRS = [
     BASE_DIR / 'base_static',
 ]
@@ -121,8 +122,14 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Configurações de autenticação Django
 LOGIN_URL = '/login/'
-LOGIN_REDIRECT_URL = '/'
+LOGIN_REDIRECT_URL = '/inventario/'
 LOGOUT_REDIRECT_URL = '/login/'
+
+# URL base da API FastAPI de inventário (sobrescrever em local_settings.py)
+INVENTARIO_API_BASE_URL = 'http://127.0.0.1/inventario-api'
+
+# Extração diária de auditoria — horário em America/Sao_Paulo (hora, minuto)
+EXTRACAO_AUDITORIA_HORARIO = (17, 30)
 
 try:
     from setup.local_settings import *

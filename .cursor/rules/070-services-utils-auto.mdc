@@ -1,0 +1,43 @@
+---
+description: Regras para services, utils e extração de lógica reutilizável em Django.
+globs: "**/services/**/*.py,**/utils/**/*.py,**/*service*.py,**/*utils*.py"
+alwaysApply: false
+---
+
+# Services e Utils
+
+## Services
+
+Use services para regras de negócio, especialmente quando envolver:
+- múltiplos models;
+- filtros por usuário/cliente/GAI;
+- criação de objetos relacionados;
+- transições de status;
+- integração externa;
+- geração de relatórios;
+- regras que serão usadas por mais de uma view.
+
+## Utils
+
+Use utils para funções técnicas reutilizáveis:
+- exportação Excel/CSV;
+- formatação;
+- normalização;
+- geração de arquivos;
+- helpers sem regra forte de negócio.
+
+## Evitar
+
+- Services genéricos demais sem necessidade.
+- Utils com regra de negócio escondida.
+- Funções muito grandes.
+- Duplicar lógica entre apps.
+
+## Padrão sugerido
+
+```text
+app/services/<dominio>_service.py
+app/utils/<capacidade>.py
+```
+
+Se a capacidade for técnica e reutilizável entre apps, avaliar criação em `core/` ou `utils/` global, conforme a rule `115-reusable-core-abstractions-auto.mdc`.

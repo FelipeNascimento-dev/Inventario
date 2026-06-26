@@ -1,0 +1,164 @@
+{% extends 'global/base.html' %}
+{% load static %}
+
+{% block content %}
+
+<script>
+    function definirAcaoEEnviar(acao) {
+        const form = document.getElementById('form-relatorio');
+        if (acao === 'visualizar') {
+            form.action = "{% url 'inventario:relatorios' %}";
+        } else if (acao === 'pdf') {
+            form.action = "{% url 'inventario:download_extracao' %}";
+            const input = document.createElement("input");
+            input.type = "hidden";
+            input.name = "formato";
+            input.value = "pdf";
+            form.appendChild(input);
+        } else if (acao === 'csv') {
+            form.action = "{% url 'inventario:download_extracao_csv' %}";
+            const input = document.createElement("input");
+            input.type = "hidden";
+            input.name = "formato";
+            input.value = "csv";
+            form.appendChild(input);
+        }
+        form.submit();
+    }
+</script>
+
+{% if messages %}
+<div class="messages">
+    {% for message in messages %}
+        <div class="message {{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="container-relatorio">
+    <div>
+        <div class="form-card">
+            <form method="get" id="form-relatorio">
+                <div class="relatorio-header">
+                    <h2>Relatórios de Inventário</h2>
+                </div>
+
+                <label for="pa">Selecione a PA:</label>
+                <select name="pa" id="pa">
+                    {% for grupo in grupos %}
+                    <option value="{{ grupo.name }}" {% if grupo.name == pa_selecionada %}selected{% endif %}>
+                        {{ grupo.name }}
+                    </option>
+                    {% endfor %}
+                    {% if not is_auditoria_extracao %}
+                    <option value="TODAS" {% if pa_selecionada == "TODAS" %}selected{% endif %}>TODAS AS PAs</option>
+                    {% endif %}
+                </select>
+
+                <label for="data">Selecione a Data de Extração:</label>
+                <input type="date" name="data" id="data" value="{{ data_selecionada|date:'Y-m-d' }}">
+
+                <div class="button-group">
+                    <button type="button" class="bipagem-button" onclick="definirAcaoEEnviar('visualizar')">Consultar</button>
+                    <button type="button" class="bipagem-button" onclick="definirAcaoEEnviar('pdf')">Extrair PDF</button>
+                </div>
+            </form>
+        </div>
+
+{% if mostrar_extracoes_agendadas %}
+        <div class="extracoes-agendadas-card">
+            <h3>Extrações CSV Diárias Automáticas ({{ horario_extracao }})</h3>
+            <p class="extracoes-agendadas-desc">
+                {% if is_ger_total %}
+                Arquivos CSV gerados automaticamente para todas as PAs.
+                {% else %}
+                Arquivos CSV gerados automaticamente para as PAs vinculadas ao seu usuário.
+                {% endif %}
+            </p>
+
+            {% if aguardando_horario_extracao %}
+            <p class="extracoes-agendadas-aviso">
+                As extrações de hoje estarão disponíveis após {{ horario_extracao }}.
+            </p>
+            {% endif %}
+
+            {% if extracoes_diarias %}
+            <div class="scroll-tabela-lotes">
+                <table class="tabela-lotes tabela-extracoes-agendadas">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>PA</th>
+                            <th>Total Seriais</th>
+                            <th>CSV</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ext in extracoes_diarias %}
+                        <tr>
+                            <td>{{ ext.data_referencia|date:"d/m/Y" }}</td>
+                            <td>{{ ext.group.name }}</td>
+                            <td>{{ ext.total_seriais }}</td>
+                            <td>
+                                <a class="link-download" href="{% url 'inventario:download_extracao_agendada' ext.pk %}">Baixar CSV</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% elif not aguardando_horario_extracao %}
+            <p class="extracoes-agendadas-vazio">Nenhuma extração automática disponível ainda.</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if dados_pa %}
+        <div class="scroll-tabela-lotes">
+            <table class="tabela-lotes">
+                <thead>
+                    <tr>
+                        <th>Lote</th>
+                        <th>Status</th>
+                        <th>PA Responsável</th>
+                        <th>Criado por</th>
+                        <th>Total Seriais</th>
+                        <th>Observação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in dados_pa %}
+                    <tr>
+                        <td>{{ item.lote }}</td>
+                        <td>{{ item.status }}</td>
+                        <td>{{ item.pa }}</td>
+                        <td>{{ item.criado_por }}</td>
+                        <td>{{ item.total_seriais }}</td>
+                        <td>{{ item.observacao|linebreaksbr }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if not is_auditoria_extracao %}
+    <div class="insercao-card">
+        <h3>Inserir Serial Manualmente</h3>
+        <form method="post">
+            {% csrf_token %}
+
+            <label for="modelo_manual">Modelo:</label>
+            <input type="text" name="modelo_manual" id="modelo_manual">
+
+            <label for="quantidade_manual">Quantidade:</label>
+            <input type="text" name="quantidade_manual" id="quantidade_manual">
+
+            <button type="submit" class="bipagem-button">Salvar Serial</button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

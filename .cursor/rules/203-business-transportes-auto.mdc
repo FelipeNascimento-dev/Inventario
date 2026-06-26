@@ -1,0 +1,50 @@
+---
+description: Regras de negócio confirmadas do app transportes (controle de campo, OS, viagens).
+globs: "transportes/**/*.py,transportes/**/templates/**/*.html"
+alwaysApply: false
+---
+
+# Transportes — regras de negócio (confirmado)
+
+## Arquitetura
+
+- Dados operacionais (OS, viagens, rotas) vêm de APIs externas (`API_BASE`, `API_URL`); models locais são permissões (`PersonalPermissions`), filtros salvos e `UsuarioExtra`.
+- Montado em `/arancia/` junto com logistica e mural.
+
+## Dois tipos de escopo
+
+1. **Sessão** — controle de campo: exige `COD_BASE`, `PROJETO`, `PROFILE` na session (`View_session.py`, `dashboard_view.py`). Redirect se ausente.
+2. **GAI / designação** — OS pendentes, lista viagens, técnicos: `user.designacao.informacao_adicional`.
+
+Não substituir um pelo outro; verificar qual padrão a tela vizinha usa.
+
+## Permissões
+
+| Área | Permissões |
+|------|------------|
+| Baseline | `logistica.acesso_arancia` + login |
+| Controle de campo (dashboard, rotas) | `transportes.controle_campo` |
+| OS, viagens, atribuir motorista | `transportes.ver_transportes` |
+| Criar usuários transportes; ver todas bases OS pendentes | `transportes.CC_admin` |
+| CRUD motorista/veículo/localidade (skills) | `logistica.gestao_total` |
+
+## Escopo por GAI
+
+- **Bases PA** para chamados/técnicos: todos os `GroupAditionalInformation` do grupo Django `arancia_PA` (`get_bases_from_arancia_pa()`).
+- **OS pendentes:** `CC_admin` vê todas as bases; demais limitados a `PA_{cod_iata}` do GAI da designação.
+- **Lista viagens:** usuários no grupo Django `arancia_PA` **não podem** filtrar outro PA — `pa_selecionada` forçado ao GAI da designação (padrão legado que combina Group + designação).
+
+## Criação de usuário transportes
+
+- Mesmo padrão logistica: `UserDesignation` + GAI coerente com o grupo skill (`view_criar_localidade.py`, `view_criar_transportadora.py`, `criar_user_view.py`).
+
+## Ao alterar ou criar telas
+
+- Respeitar session `COD_BASE` em painéis de controle de campo.
+- Respeitar bloqueio de PA em lista viagens para grupo `arancia_PA`.
+- Filtros favoritos/padrão: `transportes/utils/filtros.py` — sem lógica GAI.
+
+## Proibido
+
+- Expor bases/OS de outro PA para usuário comum sem `CC_admin`.
+- Ignorar session obrigatória em fluxos de controle de campo.

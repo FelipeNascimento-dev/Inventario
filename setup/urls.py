@@ -1,7 +1,9 @@
+from django.shortcuts import redirect
 from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
-    path('', include('inventario.urls')),
-    path('admin/', admin.site.urls),
+    path('', lambda request: redirect('inventario/', permanent=False)),
+    path('inventario/', include('inventario.urls')),
+    path('inventario/admin/', admin.site.urls),
 ]

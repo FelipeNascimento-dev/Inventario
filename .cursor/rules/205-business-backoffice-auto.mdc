@@ -1,0 +1,37 @@
+---
+description: Regras de negócio confirmadas do app backoffice (importação Excel, cadastro equipamentos).
+globs: "backoffice/**/*.py,backoffice/**/templates/**/*.html"
+alwaysApply: false
+---
+
+# Backoffice — regras de negócio (confirmado)
+
+## Arquitetura
+
+- App fino sobre **`API_BASE_BKO`** (`setup/local_settings.py`).
+- Models locais: apenas `PersonalPermissions` (`Importar`, `BKO`).
+- Montado em `/arancia/` (`backoffice/urls.py`).
+
+## Rotas e features
+
+| Rota | Função |
+|------|--------|
+| `importar-excel/` | Upload e import via API BKO |
+| `baixar-duplicados/` | Export Excel de linhas ignoradas (session `ignorados`) |
+| `Lista de quipamentos` | Busca OS + cadastro serial de equipamento |
+
+## Permissões
+
+- **`backoffice.Importar`** — exigida nas três views acima (`permission_required`).
+- **`backoffice.BKO`** — definida no model; **não** encontrada em decorators de views (legado/menu). Não assumir enforcement até confirmar com o time.
+
+## Ao alterar ou criar telas
+
+- Baseline: login + `backoffice.Importar` para fluxos de import/cadastro.
+- Persistência e validação de negócio pesada ficam na API BKO — Django orquestra upload, session e download.
+- Export de ignorados: `backoffice/utils/excel_export.py`.
+
+## Proibido
+
+- Persistir dados de import/equipamento só no SQLite local sem passar pela API BKO.
+- Remover checagem `Importar` em telas de importação/cadastro.

@@ -5,7 +5,6 @@ from django.http import HttpResponseForbidden
 
 @login_required(login_url='inventario:login')
 def criar_lote_view(request):
-    # Bloqueia criação de lote para o grupo Visualizador Master
     if request.method == 'POST' and request.user.groups.filter(name='INV_PA_VISUALIZADOR_MASTER').exists():
         return HttpResponseForbidden("Você não tem permissão para criar lotes.")
 

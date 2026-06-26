@@ -1,0 +1,74 @@
+---
+description: Regra obrigatória para autenticação, grupos, GAI e UserDesignation no projeto Django Arancia.
+globs: "**/*.py,**/templates/**/*.html"
+alwaysApply: true
+---
+
+# Regra obrigatória: User, Group, GAI e UserDesignation
+
+O Django possui `User` e `Group`, mas neste projeto existe uma camada adicional de negócio:
+
+- `GroupAdditionalInformation` / `GroupAditionalInformation` / GAI: representa informações adicionais de grupo/cliente/PA.
+- `UserDesignation`: representa a designação real do usuário para um cliente/GAI.
+
+## Regra principal
+
+Não assumir que pertencer a um `Group` identifica sozinho o cliente real do usuário.
+
+Exemplo:
+
+```text
+Grupo: Arancia_Client
+```
+
+Esse grupo pode representar vários clientes do Arancia. Portanto, apenas verificar que o usuário está no grupo `Arancia_Client` não basta para identificar qual é o cliente/PA real daquele usuário.
+
+Para isso, usar `UserDesignation` quando a regra depender do cliente real, PA, GAI, depósito, centro, CNPJ, cod_iata, cod_center ou outro dado operacional.
+
+## Ao criar/alterar views
+
+Quando a tela ou ação depender do cliente do usuário:
+
+1. Verificar autenticação.
+2. Verificar grupos/permissões gerais.
+3. Buscar a designação real via `UserDesignation`.
+4. A partir da designação, obter o GAI relacionado.
+5. Filtrar dados usando o GAI/cliente correto.
+
+## Ao criar queries
+
+Nunca retornar dados de todos os clientes para um usuário comum apenas porque ele está no grupo genérico.
+
+Preferir:
+
+```text
+User -> UserDesignation -> GAI -> dados filtrados
+```
+
+## Ao criar menus/templates
+
+Itens de menu, botões e ações sensíveis devem considerar:
+
+- permissões Django;
+- grupo;
+- designação do usuário;
+- GAI/cliente real;
+- escopo operacional.
+
+## Quando perguntar ao usuário
+
+Se a relação entre usuário, grupo, UserDesignation e GAI não estiver clara no código atual, o Cursor deve perguntar antes de implementar uma regra de permissão.
+
+Perguntas úteis:
+
+- Esta tela deve filtrar por GAI do usuário?
+- Usuários gerenciais podem ver todos os GAIs?
+- Existe grupo especial de acesso total?
+- A ação depende do grupo Django ou da designação real do usuário?
+- O usuário pode ter mais de uma designação?
+
+## Proibido
+
+- Criar lógica nova assumindo que `Group` sozinho resolve o cliente real.
+- Ignorar `UserDesignation` em telas filtradas por cliente/PA.
+- Criar filtro global sem considerar usuários gerenciais/superusuários.

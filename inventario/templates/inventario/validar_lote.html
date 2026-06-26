@@ -6,11 +6,19 @@
         <h2>Validação do Lote #{{ lote.numero_lote }}</h2>
 
         <p><strong>Total de Seriais:</strong> {{ total_seriais }}</p>
-        <p><strong>5% para validação:</strong> {{ amostra_necessaria }}</p>
+        <p><strong>10% para validação:</strong> {{ amostra_necessaria }}</p>
 
         <div id="contador">
             <p><strong>Seriais validados:</strong> <span id="validados">0</span> / {{ amostra_necessaria }}</p>
         </div>
+
+        {% for message in messages %}
+        {% if 'lote_validado' in message.tags %}
+        <script type="text/javascript">
+            alert("{{ message|escapejs }}");
+        </script>
+        {% endif %}
+        {% endfor %}
 
         {% if not is_visualizador_master %}
         <div class="form-group" style="margin-top: 30px; text-align: center; justify-content: center;">
@@ -30,42 +38,98 @@
 
         {% if not is_visualizador_master %}
         <script>
-            let validados = 0;
-            const amostra = JSON.parse(document.getElementById("amostra-data").textContent);
-            const loteId = JSON.parse(document.getElementById("lote-id").textContent);
-            const validadosSet = new Set();
-
+            const podeDigitar = "{{ pode_digitar|yesno:'true,false' }}" === "true";
             let buffer = '';
-            let lastTime = Date.now();
+            let lastInputTime = Date.now();
+            const INTERVALO_MAXIMO = 250;
 
             document.addEventListener("DOMContentLoaded", () => {
                 const input = document.getElementById("codigo");
+                const amostra = JSON.parse(document.getElementById("amostra-data").textContent);
+                const loteId = JSON.parse(document.getElementById("lote-id").textContent);
+                const validadosSet = new Set();
+                let validados = 0;
+
+                if (!podeDigitar) {
+                    input.setAttribute('readonly', 'readonly');
+                    input.setAttribute('autocomplete', 'off');
+                    input.value = '';
+
+                    ['paste', 'drop', 'contextmenu', 'copy', 'cut', 'input'].forEach(evt =>
+                        input.addEventListener(evt, e => e.preventDefault())
+                    );
+
+                    input.addEventListener('keydown', e => {
+                        const now = Date.now();
+
+                        if (now - lastInputTime > INTERVALO_MAXIMO) {
+                            buffer = '';
+                        }
+
+                        lastInputTime = now;
+
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+
+                            const codigo = buffer.trim().toUpperCase();
+                            buffer = '';
+
+                            if (codigo.length > 0 && !validadosSet.has(codigo)) {
+                                input.removeAttribute('readonly');
+                                input.value = codigo;
+                                input.setAttribute('readonly', 'readonly');
+
+                                fetch(`/inventario/lote/${loteId}/validar/serial/`, {
+                                    method: "POST",
+                                    headers: {
+                                        "Content-Type": "application/x-www-form-urlencoded",
+                                        "X-CSRFToken": "{{ csrf_token }}"
+                                    },
+                                    body: `codigo=${encodeURIComponent(codigo)}`
+                                })
+                                    .then(res => res.json())
+                                    .then(data => {
+                                        if (data.status === "erro") {
+                                            alert(data.mensagem);
+                                            if (data.redirect_url) {
+                                                window.location.href = data.redirect_url;
+                                            }
+                                        } else {
+                                            validadosSet.add(codigo);
+                                            validados = data.validados ?? validados + 1;
+                                            document.getElementById("validados").innerText = validados;
+
+                                            if (data.lote_finalizado && data.redirect_url) {
+                                                window.location.href = data.redirect_url;
+                                            }
+                                        }
+                                        input.value = "";
+                                        input.setAttribute('readonly', 'readonly');
+                                    });
+                            }
+                        } else if (e.key.length === 1) {
+                            buffer += e.key;
+                        }
+
+                        e.preventDefault();
+                    });
+
+                    return;
+                }
+
+                // Usuário pode digitar normalmente
                 input.focus();
 
                 input.addEventListener("keydown", (e) => {
-                    const now = Date.now();
-                    const timeDiff = now - lastTime;
-                    lastTime = now;
-
-                    if (timeDiff < 50) {
-                        if (e.key.length === 1) {
-                            buffer += e.key;
-                        }
-                    } else {
-                        buffer = e.key.length === 1 ? e.key : '';
-                    }
-
-                    if (e.key === 'Enter') {
+                    if (e.key === "Enter") {
                         e.preventDefault();
-                        const codigo = buffer.trim().toUpperCase();
-                        buffer = '';
-
+                        const codigo = input.value.trim().toUpperCase();
                         if (codigo === "" || validadosSet.has(codigo)) {
                             input.value = "";
                             return;
                         }
 
-                        fetch(`/lote/${loteId}/validar/serial/`, {
+                        fetch(`/inventario/lote/${loteId}/validar/serial/`, {
                             method: "POST",
                             headers: {
                                 "Content-Type": "application/x-www-form-urlencoded",
@@ -76,36 +140,22 @@
                             .then(res => res.json())
                             .then(data => {
                                 if (data.status === "erro") {
-                                    alert("❌ " + data.mensagem);
-                                    window.location.href = "/";
+                                    alert(data.mensagem);
+                                    if (data.redirect_url) {
+                                        window.location.href = data.redirect_url;
+                                    }
                                 } else {
                                     validadosSet.add(codigo);
-                                    validados += 1;
+                                    validados = data.validados ?? validados + 1;
                                     document.getElementById("validados").innerText = validados;
 
-                                    if (validados >= amostra) {
-                                        fetch(`/lote/${loteId}/fechar/`, {
-                                            method: "POST",
-                                            headers: {
-                                                "X-CSRFToken": "{{ csrf_token }}"
-                                            }
-                                        })
-                                            .then(res => res.json())
-                                            .then(data => {
-                                                alert(data.mensagem);  // sempre usa o que vem do backend
-                                                if (data.status === "ok") {
-                                                    window.location.href = "/";
-                                                }
-                                            });
+                                    if (data.lote_finalizado && data.redirect_url) {
+                                        window.location.href = data.redirect_url;
                                     }
                                 }
                             });
 
                         input.value = "";
-                    }
-
-                    if (e.key !== 'Enter') {
-                        e.preventDefault();
                     }
                 });
 
@@ -120,6 +170,8 @@
                 );
             });
         </script>
+
+
         {% endif %}
 
     </div>

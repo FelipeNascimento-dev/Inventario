@@ -1,0 +1,6 @@
+Projeto Django C-Trends/Arancia.
+Preserve compatibilidade com código legado.
+Use UserDesignation + GAI para identificar cliente/PA real; não assuma que Group sozinho resolve escopo.
+Views devem ser enxutas; regras complexas devem ir para services/helpers.
+Não versionar secrets.
+Quando descobrir regra de negócio recorrente, registrar em .cursor/business-rules/ e propor rule em .cursor/rules/2xx-business-<dominio>-auto.mdc.

@@ -1,0 +1,69 @@
+---
+description: Regras de negócio confirmadas para identidade, GAI, UserDesignation e elevação de escopo.
+globs: "**/*.py,**/templates/**/*.html"
+alwaysApply: true
+---
+
+# Identidade e escopo operacional (confirmado)
+
+Complementa a rule `080-auth-gai-userdesignation-always.mdc` com decisões confirmadas pelo time.
+
+## UserDesignation e GAI
+
+- Todo usuário operacional **deve** ter `UserDesignation.informacao_adicional` preenchido. Usuário sem GAI é **configuração inválida**.
+- Escopo padrão: `request.user.designacao.informacao_adicional` (ou `_id`).
+- Modelos: `GroupAditionalInformation` (GAI) e `UserDesignation` em `logistica/models.py`.
+- GAI carrega dados operacionais: `cod_iata`, `sales_channel`, `cod_center`, `deposito`, `nome`, CNPJ, endereço.
+
+## Grupo Django vs GAI
+
+- **Grupo** (`name__startswith="arancia_"`) = skill/setor e permissões Django.
+- **GAI** = PA/CD/cliente/transportadora real.
+- Na criação/edição de usuário, o GAI selecionado **deve pertencer ao mesmo Django Group** da skill (`forms_create_user.py`, gestão de usuários).
+- Usuários internos: prefixo **`ARC`** no username.
+
+### Grupos recorrentes
+
+| `Group.name` | Papel |
+|--------------|-------|
+| `arancia_PA` | Ponto de atendimento |
+| `arancia_CD` | Centro de distribuição |
+| `arancia_CUSTOMER` | Cliente/localidade (transportes) |
+| `arancia_TRANSPORT` | Transportadora |
+
+## Gate principal
+
+- **`logistica.acesso_arancia`** + login em quase todas as telas de `logistica`, `transportes`, `mural` e `backoffice`.
+
+## Elevação de escopo (“ver tudo”)
+
+Duas flags coexistem para escopo ampliado — **não unificar nem refatorar**; respeitar o padrão de cada tela existente:
+
+| Mecanismo | Uso típico |
+|-----------|------------|
+| GAI `sales_channel == 'all'` | `location_id = 0` ou todos os PAs (reversa, checkout, remessa, romaneio V2) |
+| `logistica.gestao_total` | Escolha de origem PA/CD, gestão usuários/skills, CRUD motorista/veículo |
+| `logistica.pode_gerenciar_filiais` | Todos os `sales_channel` em consulta de pedidos |
+| `logistica.gerente_estoque` | Todos os GAIs `arancia_pa` no estoque |
+| `transportes.CC_admin` | Todas as bases PA em OS pendentes |
+
+Usuário comum: filtrar sempre pelo GAI da designação, salvo quando uma das elevações acima se aplicar naquela tela.
+
+## Permissões customizadas (modelos dummy)
+
+- `logistica.PermissaoUsuarioDummy` — `gestao_total`, `pode_gerenciar_filiais`, `gerente_estoque`, `lastmile_b2c`, `checkin_principal`, `entrada_flfm`, `reverse`, `full_checkin`, etc.
+- `transportes.PersonalPermissions` — `CC_admin`, `controle_campo`, `ver_transportes`, etc.
+- `backoffice.PersonalPermissions` — `Importar`, `BKO`.
+- `mural.MuralPermissions` — `ger_mural`.
+
+## Ao implementar código novo
+
+- Preferir `User -> UserDesignation -> GAI -> filtro`, não `Group` sozinho.
+- Antes de extrair helper centralizado, verificar se a tela vizinha já tem padrão local — o projeto ainda repete escopo view a view (legado).
+- Não assumir que `is_superuser` bypassa GAI em telas operacionais.
+
+## Proibido
+
+- Unificar `sales_channel == 'all'` com `gestao_total` em refatorações não solicitadas.
+- Retornar dados de todos os clientes para usuário comum sem elevação explícita.
+- Criar usuário operacional sem GAI.

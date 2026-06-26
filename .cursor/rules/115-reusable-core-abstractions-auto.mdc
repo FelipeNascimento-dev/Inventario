@@ -1,0 +1,50 @@
+---
+description: Avaliação obrigatória antes de criar novas classes reutilizáveis em Django.
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Classes reutilizáveis e abstrações
+
+Antes de criar uma nova classe, avaliar se ela pode ser reutilizada futuramente.
+
+## Criar abstração reutilizável quando a classe for técnica
+
+Exemplos:
+- envio de e-mail;
+- SMS;
+- WhatsApp;
+- integração HTTP;
+- storage/upload;
+- PDF;
+- Excel/CSV;
+- cache;
+- fila/background task;
+- autenticação externa;
+- normalizadores genéricos.
+
+Se for reutilizável entre apps, preferir criar em:
+
+```text
+core/
+utils/
+common/
+```
+
+ou em uma estrutura equivalente já existente.
+
+## Manter no app/service quando for regra de negócio
+
+Exemplos:
+- regra específica de logística;
+- regra específica de transporte;
+- fluxo de permissão de uma tela;
+- validação específica de um processo.
+
+## Antes de implementar
+
+O Cursor deve explicar brevemente:
+
+- Por que a classe fica em `core/utils/common` ou no app.
+- Se existe chance real de reutilização.
+- Qual interface mínima será criada.

@@ -1,0 +1,26 @@
+---
+description: Regras para forms Django.
+globs: "**/forms.py,**/forms/**/*.py"
+alwaysApply: false
+---
+
+# Forms Django
+
+Forms devem cuidar da entrada do usuário, validações e widgets.
+
+## O form deve
+- Declarar campos claramente.
+- Usar labels e help_text quando necessário.
+- Validar dados com `clean_<field>` ou `clean`.
+- Não aceitar dados inválidos silenciosamente.
+- Usar widgets compatíveis com templates existentes.
+
+## O form não deve
+- Executar regras extensas de negócio.
+- Fazer muitas consultas complexas sem necessidade.
+- Fazer chamadas externas.
+- Misturar HTML bruto em excesso.
+
+## Quando extrair para service
+
+Se a validação depender de múltiplos modelos, regras de cliente, UserDesignation, GAI ou fluxo de status, preferir mover a regra principal para service/helper e manter no form apenas a validação de entrada.

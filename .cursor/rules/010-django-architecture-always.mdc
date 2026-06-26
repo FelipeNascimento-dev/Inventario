@@ -1,0 +1,62 @@
+---
+description: Regras de arquitetura para organizar projetos Django legados ou em evolução.
+globs: "**/*.py"
+alwaysApply: true
+---
+
+# Arquitetura Django recomendada
+
+## Responsabilidades por camada
+
+### `models.py`
+- Estrutura de dados.
+- Relacionamentos.
+- Métodos simples ligados ao próprio modelo.
+- Constraints, choices e propriedades simples.
+
+Não colocar regras de fluxo de tela, regras de permissão complexas, chamadas HTTP externas ou geração de arquivos grandes diretamente no model.
+
+### `views.py` ou `views/`
+- Receber requisição.
+- Validar autenticação/permissão.
+- Instanciar forms.
+- Chamar services/helpers quando houver regra complexa.
+- Renderizar template, redirect ou retornar JsonResponse.
+
+Evitar views gigantes.
+
+### `forms/`
+- Validação de entrada do usuário.
+- Campos e widgets.
+- Validações ligadas ao formulário.
+
+Não colocar consultas e regras de negócio muito extensas no form quando isso puder ser service.
+
+### `templates/`
+- Exibição.
+- Estrutura HTML.
+- Uso de tags/filters simples.
+
+Evitar regra de negócio pesada no template.
+
+### `services/`
+Quando existir ou for criado, deve guardar:
+- Orquestração de regra de negócio.
+- Fluxos com múltiplas consultas.
+- Criação/atualização coordenada de objetos.
+- Regras de permissão específicas do domínio.
+- Integrações externas.
+
+### `utils/`
+- Funções técnicas reutilizáveis.
+- Exportação Excel/PDF.
+- Normalizadores.
+- Helpers sem dependência forte de domínio.
+
+## Refatoração gradual
+
+Quando alterar arquivo legado:
+1. Não reescrever tudo sem necessidade.
+2. Isolar a mudança solicitada.
+3. Se identificar regra complexa, sugerir extração incremental.
+4. Quando alterar arquivo existente, entregar o arquivo completo se solicitado pelo usuário.

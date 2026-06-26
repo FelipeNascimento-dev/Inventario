@@ -3,44 +3,66 @@
 {% block content %}
 <div class="centraliza-tela">
     <div class="botoes-lote-flex">
-        {% if not lote_bloqueado and not is_visualizador_master %}
-        <div class="container-nova-caixa">
-            <h2>Nova Caixa para Lote #{{ lote.numero_lote }}</h2>
-            <form method="post" action="{% url 'inventario:iniciar_caixa' lote.id %}">
-                {% csrf_token %}
-                <button type="submit" class="btn-nova-caixa">Iniciar nova caixa</button>
-            </form>
-        </div>
-
-        <div class="container-fechar-lote">
-            <h2>Finalizar lote #{{ lote.numero_lote }}</h2>
-            <form id="form-finalizar-lote" method="post" action="{% url 'inventario:index' %}">
-                {% csrf_token %}
-                <input type="hidden" name="fechar_lote_id" value="{{ lote.id }}">
-                <button type="submit" class="btn-fechar-lote" id="btn-finalizar-lote">
-                    Finalizar lote
-                </button>
-            </form>
-        </div>
+        {% if lote_bloqueado or is_visualizador_master %}
+            <!-- Apenas botão Voltar -->
+            <div class="encerrar-bipagem">
+                <form class="encerrar" action="{% url 'inventario:index' %}">
+                    {% csrf_token %}
+                    <button type="submit" name="encerrar_caixa" class="finalizar-bipagem">
+                        Voltar
+                    </button>
+                </form>
+            </div>
+        {% elif not tem_caixa %}
+            <!-- Mostrar ambos: Iniciar Bipagem e Finalizar Lote -->
+            <div class="container-nova-caixa">
+                <h2>Nova Bipagem para Lote #{{ lote.numero_lote }}</h2>
+                <form method="post" action="{% url 'inventario:iniciar_caixa' lote.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-nova-caixa">Iniciar Bipagem</button>
+                </form>
+            </div>
+            <div class="container-fechar-lote">
+                <h2>Finalizar lote #{{ lote.numero_lote }}</h2>
+                <form id="form-finalizar-lote" method="post" action="{% url 'inventario:validar_lote' lote.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="fechar_lote_id" value="{{ lote.id }}">
+                    <button type="submit" class="btn-fechar-lote" id="btn-finalizar-lote">
+                        Finalizar lote
+                    </button>
+                </form>
+            </div>
         {% else %}
-        <div class="encerrar-bipagem">
-            <form class="encerrar" action="{% url 'inventario:index' %}">
-                {% csrf_token %}
-                <button type="submit" name="encerrar_caixa" class="finalizar-bipagem">
-                    Voltar</button>
-            </form>
-        </div>
+            <!-- Já tem uma caixa → apenas botão Finalizar Lote -->
+            <div class="container-fechar-lote">
+                <h2>Finalizar lote #{{ lote.numero_lote }}</h2>
+                <form id="form-finalizar-lote" method="post" action="{% url 'inventario:validar_lote' lote.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="fechar_lote_id" value="{{ lote.id }}">
+                    <button type="submit" class="btn-fechar-lote" id="btn-finalizar-lote">
+                        Finalizar lote
+                    </button>
+                </form>
+            </div>
         {% endif %}
     </div>
+
+    {% if messages %}
+    <ul class="messages">
+        {% for message in messages %}
+        <li class="{{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
 
     <div class="scroll-tabela-caixas">
         <table class="tabela-caixas">
             <thead>
                 <tr>
-                    <th>Numero da Caixa</th>
+                    <th>ID Bipagem</th>
                     <th>Criada em</th>
                     <th>Status</th>
-                    <th>Usuário</th>
+                    <th>Torre</th>
                     <th>Ações</th>
                 </tr>
             </thead>
@@ -97,7 +119,7 @@
         if (caixasAbertas) {
             btnFinalizar.addEventListener("click", function (e) {
                 e.preventDefault();
-                alert("❌ Este lote possui caixas abertas. Finalize todas antes de concluir o lote.");
+                alert("Este lote possui caixas abertas. Finalize todas antes de concluir o lote.");
             });
         }
     });

@@ -36,87 +36,122 @@
             color: #aa2d3d;
         }
 
+        .info-basica p {
+            margin: 4px 0;
+        }
+
+        .bloco-final {
+            page-break-inside: avoid;
+        }
+
         .assinaturas {
             margin-top: 60px;
-            display: flex;
-            justify-content: space-between;
+            width: 100%;
         }
 
-        .assinatura {
-            width: 30%;
+        .assinaturas td {
+            width: 33%;
+            border: none;
             text-align: center;
+            vertical-align: bottom;
+            padding-top: 60px;
         }
 
-        .assinatura p {
-            margin-top: 60px;
+        .assinatura-linha {
             border-top: 1px solid #000;
             padding-top: 5px;
             font-weight: bold;
+        }
+
+        .observacao {
+            margin-top: 40px;
+            font-size: 0.9em;
+            color: #555;
+        }
+
+        .observacao ul {
+            margin: 8px 0 0 18px;
+            padding: 0;
         }
     </style>
 </head>
 
 <body>
 
-    <h1>Laudo Simplificado de Inventário Patrimonial em Poder de Terceiros</h1>
+    <h1>Relatório Simplificado de Inventário Patrimonial em Poder de Terceiros</h1>
 
-    <h3>Empresa Responsável: {{ empresa }}</h3>
-    <p><strong>Endereço:</strong> {{ endereco_pa }}</p>
-    <p><strong>CNPJ:</strong> {{ cnpj }}</p>
-    <p><strong>Responsável Técnico:</strong> {{ responsavel }}</p>
-    <p><strong>Ponto de Atendimento (PA):</strong> {{ nome_pa|slice:"7:" }}</p>
-    <p><strong>Data de Emissão:</strong> {{ data_emissao }}</p>
+    <div class="info-basica">
+        <h3>Empresa Responsável: {{ empresa }}</h3>
+        <p><strong>Endereço CD:</strong> {{ endereco_pa }}</p>
+        <p><strong>Responsável Técnico do Local:</strong> {{ responsavel }}</p>
+        <p><strong>Ponto de Atendimento (PA) / CD:</strong> {{ nome_pa }}</p>
+        <p><strong>Data de Emissão:</strong> {{ data_emissao }}</p>
+        <p><strong>Data Filtrada:</strong> {{ data_filtro }}</p>
+    </div>
 
     <h2>1. Objetivo</h2>
     <p>Registrar de forma simplificada os bens patrimoniais sob guarda de terceiros, com base em bipagem eletrônica
         realizada por sistema automatizado.</p>
 
     <h2>2. Estrutura do Inventário</h2>
-    <p>O inventário está estruturado em lotes, com caixas e seriais conforme tabela a seguir:</p>
-
+    <p>O inventário está estruturado em lotes, com caixas e seriais conforme tabela a seguir, segregando por tipos de
+        equipamentos — GOOD, BAD, TRIAGEM, OBSOLETO e KIT GOOD — conforme a classificação registrada na bipagem.</p>
 
     <h2>3. Localização dos Bens</h2>
     <p>Os equipamentos encontram-se atualmente sob a guarda de terceiros, conforme registros e acordos vigentes, estando
-        alocados nos pontos de atendimento (PAs) devidamente identificados no sistema.</p>
+        alocados nos pontos de atendimento (PAs), centros de distribuição (CDs) e/ou agências, devidamente identificados
+        no sistema e indicados neste documento.</p>
 
     <h2>4. Conclusão</h2>
     <p>Todos os itens listados neste laudo foram conferidos por bipagem e encontram-se regularizados conforme os dados
-        registrados no sistema. Nenhuma divergência foi constatada no momento da emissão deste documento.</p>
+        registrados no sistema. As partes concordam que este documento resume, com correção, aquilo que foi bipado,
+        conforme resumo quantitativo abaixo.</p>
 
     <h2>5. Resumo Quantitativo</h2>
     <table>
         <thead>
             <tr>
-                <th>Lote</th>
-                <th>Nº de Caixas</th>
-                <th>Total de Seriais Bipados</th>
+                <th>Total de Lotes</th>
+                <th>Total de Seriais</th>
             </tr>
         </thead>
         <tbody>
             {% for item in resumo_pa %}
             <tr>
                 <td>{{ item.lote }}</td>
-                <td>{{ item.caixas }}</td>
                 <td>{{ item.seriais }}</td>
             </tr>
             {% endfor %}
             <tr>
                 <td><strong>Total Geral</strong></td>
-                <td><strong>{{ total_caixas }}</strong></td>
                 <td><strong>{{ total_seriais }}</strong></td>
             </tr>
         </tbody>
     </table>
-    <h2>6. Assinaturas</h2>
-    <div class="assinaturas">
-        <div class="assinatura">
-            <p>Representante da PA</p>
-        </div>
-        <div class="assinatura">
-            <p>Representante do Contratante</p>
-        </div>
-        <div class="assinatura">
-            <p>Auditor Responsável</p>
+
+    <div class="bloco-final">
+        <h2>6. Assinaturas</h2>
+        <table class="assinaturas">
+            <tr>
+                <td>
+                    <div class="assinatura-linha">Responsável Técnico da Unidade</div>
+                </td>
+                <td>
+                    <div class="assinatura-linha">Representante da GetNet</div>
+                </td>
+                <td>
+                    <div class="assinatura-linha">Supervisor dos Auditores</div>
+                </td>
+            </tr>
+        </table>
+
+        <div class="observacao">
+            <p><strong>IMPORTANTE:</strong> Este documento deve ser impresso em 03 vias de igual teor e forma.</p>
+            <ul>
+                <li>VIA 01 Fica com o Responsável Técnico da Unidade Inventariada</li>
+                <li>VIA 02 Fica com o Representante da GetNet</li>
+                <li>VIA 03 Fica com o Supervisor dos Auditores e retorna para a C-TRENDS</li>
+            </ul>
         </div>
     </div>
 

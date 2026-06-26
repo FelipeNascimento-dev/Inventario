@@ -23,6 +23,12 @@
 
     <div class="container-login">
         <form class="form-login" method="post">
+            {% if request.COOKIES.mensagem_bloqueio %}
+            <div class="alert alert-danger">
+                {{ request.COOKIES.mensagem_bloqueio }}
+            </div>
+            {% endif %}
+
             {% csrf_token %}
             <h2 class="form-title-login">Login</h2>
 
@@ -42,8 +48,8 @@
             </div>
             {% endfor %}
             <button class="login-button" type="submit">Entrar</button>
-            <!-- <p>Não tem cadastro? <a href="{% url 'inventario:register' %}">Crie sua conta</a></p> -->
         </form>
     </div>
 </body>
+
 </html>

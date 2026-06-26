@@ -1,0 +1,68 @@
+---
+description: Regras de negócio confirmadas do app mural (API externa, permissões, targeting, gerenciamento).
+globs: "mural/**/*.py,mural/**/templates/**/*.html"
+alwaysApply: false
+---
+
+# Mural — regras de negócio (confirmado)
+
+## Arquitetura
+
+- Conteúdo (itens, leituras, targeting) vive na **API externa** `MURAL_API_URL` (`setup/local_settings.py`).
+- Django guarda apenas `mural.ger_mural` em `MuralPermissions` — sem models de post/categoria/aprovação.
+- Anexos/imagens: upload via `TRANSP_API_URL/v2/firebase/upload/Firebase/`.
+
+## Rotas
+
+- Feed consumidor: `/arancia/` e também `logistica` index (`path('', mural)`).
+- Gerenciamento: `/arancia/mural/gerenciamento/`.
+
+## Permissões
+
+| Tela / ação | Regra |
+|-------------|-------|
+| Acesso às duas telas | login + `logistica.acesso_arancia` |
+| Create / edit / disable no **gerenciamento** | `mural.ger_mural` no **servidor** (`gerenciamento_mural.py`) |
+| Create / edit / disable no **feed consumidor** | UI oculta botões sem `ger_mural`; **servidor não verifica** (`view_mural.py`) — **decisão do time: manter assim, não alterar** |
+| Marcar como lido | qualquer usuário autenticado com `acesso_arancia` |
+
+## Escopo e listagens
+
+- **Feed consumidor:** `GET /v1/items/by-user/` com `user_id` + `gai_id` de `user.designacao.informacao_adicional_id`.
+- **Gerenciamento:** `GET /v1/items/by-created-by/?created_by_id=` — lista **somente itens criados pelo usuário logado**. Comportamento **correto**; não alterar para listagem organizacional.
+
+## Domínio de item (API + validação Django)
+
+**Tipos (`item_type`):** `announcement`, `notice`, `script`, `manual`.
+
+**Severidades:** `informational`, `moderate`, `important`, `critical`.
+
+**Targeting (`target_type` + `ids`):**
+
+| `target_type` | `ids` |
+|---------------|-------|
+| `all` | `[]` |
+| `users` | IDs de usuários |
+| `groups` | IDs de grupos Django |
+| `gais` | IDs de GAI |
+
+Pickers de audiência (gerenciamento): usuários `ARC*`, grupos `arancia_*`, GAIs com `group__name__startswith="arancia_"` — catálogo global Arancia.
+
+## Regras de escrita
+
+- Item **`critical`:** duração máxima **7 dias** — validar no Django (`validate_critical_duration`) antes de chamar API.
+- Datetimes: converter BR (`America/Sao_Paulo`) → UTC ISO para API; parse reverso ao ler.
+- Desabilitar: `DELETE /v1/items/disable-item/{id}` (soft-disable).
+- Leitura manual: `POST /v1/item-reads/?manualconfirmation=true`.
+
+## Ao alterar ou criar telas
+
+- Não mover persistência de itens para ORM Django.
+- Não adicionar checagem `ger_mural` no servidor em `view_mural.py` salvo solicitação explícita.
+- Manter listagem do gerenciamento por `created_by_id` — não trocar para listagem de toda a organização.
+- Duplicação entre `view_mural.py` e `gerenciamento_mural.py` é legado — ao extrair helpers, preservar diferenças de permissão acima.
+
+## Proibido
+
+- Assumir categorias ou workflow de aprovação no Django (não existem).
+- Alterar comportamento de permissão do feed consumidor sem pedido do time.

@@ -2,57 +2,99 @@
 
 {% block content %}
 
-<div class="form-container">
+<div class="bipagem-page">
     {% if not is_visualizador_master %}
-    <form method="post" class="form-1col">
-        {% csrf_token %}
-        {% if mensagem.mostrar == True %}
-        {% include 'global/partials/_form_1col.html' %}
-        {% else %}
-        <h2 class="mensagem">{{ mensagem.mensagem }}</h2>
-        <h2 class="mensagem">{{ mensagem.mensagem2 }}</h2>
-        {% endif %}
-    </form>
+    <div class="form-container">
+        <form method="post" class="form-1col">
+            {% csrf_token %}
+            {% if mensagem.mostrar == True %}
+            {% include 'global/partials/_form_1col.html' %}
+            {% else %}
+            <p class="bipagem-aviso">{{ mensagem.mensagem }}</p>
+            {% if mensagem.mensagem2 %}
+            <p class="bipagem-aviso">{{ mensagem.mensagem2 }}</p>
+            {% endif %}
+            {% endif %}
+        </form>
+    </div>
     {% endif %}
-</div>
 
-<div class="centraliza-bipagem">
-    <div class="scroll-tabela-bipagem">
-        <table class="tabela-bipagem">
-            <thead>
-                <tr>
-                    <th>Número da caixa</th>
-                    <th>Unidades na caixa</th>
-                    <th>Serial</th>
-                    <th>Modelo</th>
-                    <th>Patrimonio</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for item in page_obj %}
-                <tr>
-                    <td>#{{ item.id_caixa.nr_caixa }}</td>
-                    <td>#{{ item.unidade }}</td>
-                    <td>{{ item.nrserie }}</td>
-                    <td>{{ item.modelo }}</td>
-                    <td>{{ item.patrimonio }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        <div class="paginacao-lotes">
-            {% if page_obj.has_other_pages %}
-            <div class="pagination-wrapper">
-                {% if page_obj.has_previous %}
-                <a href="?page=1" class="pagination-link">« Primeira</a>
-                <a href="?page={{ page_obj.previous_page_number }}" class="pagination-link">‹</a>
-                {% endif %}
+    {% if messages %}
+    <div class="bipagem-alerts">
+        {% for message in messages %}
+        <div class="bipagem-alert bipagem-alert--{{ message.tags|default:'info' }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 
-                {% for num in page_obj.paginator.page_range %}
-                {% if num == page_obj.number %}
-                <span class="pagination-link active">{{ num }}</span>
-                {% elif num >= page_obj.number|add:-2 and num <= page_obj.number|add:2 %} <a href="?page={{ num }}"
-                    class="pagination-link">{{ num }}</a>
+    <div class="centraliza-bipagem">
+        <div class="scroll-tabela-bipagem">
+            <table class="tabela-bipagem">
+                <thead>
+                    <tr>
+                        <th>ID Bipagem</th>
+                        <th>Quantidade</th>
+                        <th>Serial</th>
+                        <th>Modelo</th>
+                        <th>Status</th>
+                        <th>Ação</th>
+                        <th>Observação</th>
+                        {% if is_gerente_pa and not is_visualizador_master %}
+                        <th>Comentários</th>
+                        <th>Ações</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody id="bipagem-tbody">
+                    {% for item in page_obj %}
+                    <tr>
+                        <td>#{{ item.id_caixa.nr_caixa }}</td>
+                        <td>#{{ item.unidade }}</td>
+                        <td>{{ item.nrserie }}</td>
+                        <td>{{ item.modelo }}</td>
+                        <td>{{ item.estado|default:"—" }}</td>
+                        <td>{{ item.mensagem_ferramenta_inv }}</td>
+                        <td>{{ item.observacao }}</td>
+                        {% if is_gerente_pa and not is_visualizador_master %}
+                        <td>{{ item.comentarios|default:"—"}}</td>
+                        <td>
+                            {% if caixa.status != 'Finalizada' %}
+                            <div class="icon-actions">
+                                <a href="{% url 'inventario:caixa' lote.id caixa.id %}?edit_serial={{ item.id }}">
+                                    <button type="button"><i class="fa-solid fa-pencil"></i></button>
+                                </a>
+                                <form method="post" action="{% url 'inventario:excluir_serial' item.id %}"
+                                    style="display:inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" onclick="return confirm('Deseja excluir este serial?')">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                            {% else %}
+                            <span class="badge-fechado">—</span>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="paginacao-lotes">
+                {% if page_obj.has_other_pages %}
+                <div class="pagination-wrapper">
+                    {% if page_obj.has_previous %}
+                    <a href="?page=1" class="pagination-link">« Primeira</a>
+                    <a href="?page={{ page_obj.previous_page_number }}" class="pagination-link">‹</a>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                    {% if num == page_obj.number %}
+                    <span class="pagination-link active">{{ num }}</span>
+                    {% elif num >= page_obj.number|add:-2 and num <= page_obj.number|add:2 %}
+                    <a href="?page={{ num }}" class="pagination-link">{{ num }}</a>
                     {% endif %}
                     {% endfor %}
 
@@ -60,93 +102,330 @@
                     <a href="?page={{ page_obj.next_page_number }}" class="pagination-link">›</a>
                     <a href="?page={{ page_obj.paginator.num_pages }}" class="pagination-link">Última »</a>
                     {% endif %}
+                </div>
+                {% endif %}
             </div>
-            {% endif %}
         </div>
-    </div>
 
-    {% if mensagem.encerrar == True and not is_visualizador_master %}
-    <div class="encerrar-bipagem">
-        <h2>Deseja encerrar caixa #{{ caixa.nr_caixa }}</h2>
-        <form method="post" class="encerrar" action="{% url 'inventario:lote' lote.id %}">
-            {% csrf_token %}
-            <button type="submit" name="encerrar_caixa" class="finalizar-bipagem">
-                Encerrar Caixa</button>
-        </form>
+        {% if mensagem.encerrar == True and not is_visualizador_master %}
+        <div class="encerrar-bipagem">
+            <h2>Finalização</h2>
+            <form method="post" class="encerrar" action="{% url 'inventario:caixa' lote.id caixa.id %}">
+                {% csrf_token %}
+                <button type="submit" name="encerrar_caixa" class="finalizar-bipagem">Encerrar Bipagem</button>
+            </form>
+        </div>
+        {% else %}
+        <div class="encerrar-bipagem">
+            <form class="encerrar" action="{% url 'inventario:lote' lote.id %}">
+                {% csrf_token %}
+                <button type="submit" name="encerrar_caixa" class="finalizar-bipagem">Voltar</button>
+            </form>
+        </div>
+        {% endif %}
     </div>
-    {% else %}
-    <div class="encerrar-bipagem">
-        <form class="encerrar" action="{% url 'inventario:lote' lote.id %}">
-            {% csrf_token %}
-            <button type="submit" name="encerrar_caixa" class="finalizar-bipagem">
-                Voltar</button>
-        </form>
-    </div>
-    {% endif %}
 </div>
 
 <script>
-    const serialInput = document.getElementById('serial-input');
-    let buffer = '';
-    let lastTime = Date.now();
+    const modoEdicao = JSON.parse("{{ modo_edicao|yesno:'true,false'|lower }}");
+    const modoSelecaoModelo = JSON.parse("{{ modo_selecao_modelo|yesno:'true,false'|lower }}");
+    const modoBipagem = JSON.parse("{{ modo_bipagem|yesno:'true,false'|lower }}");
+    const podeDigitar = JSON.parse("{{ pode_digitar|yesno:'true,false'|lower }}");
+    const isGerentePa = JSON.parse("{{ is_gerente_pa|yesno:'true,false'|lower }}");
+    const isVisualizadorMaster = JSON.parse("{{ is_visualizador_master|yesno:'true,false'|lower }}");
+    const caixaFinalizada = {% if caixa.status == 'Finalizada' %}true{% else %}false{% endif %};
+    const inserirSerialUrl = "{% url 'inventario:inserir_serial' lote.id caixa.id %}";
+    const csrfToken = "{{ csrf_token }}";
+    const loteId = {{ lote.id }};
+    const caixaId = {{ caixa.id }};
 
-    serialInput.addEventListener('keydown', (e) => {
-        const now = Date.now();
-        const timeDiff = now - lastTime;
-        lastTime = now;
-
-        if (timeDiff < 50) {
-            if (e.key.length === 1) {
-                buffer += e.key;
-            }
-        } else {
-            buffer = e.key.length === 1 ? e.key : '';
+    function nomeBotaoSubmit(submitter) {
+        if (submitter && submitter.name) {
+            return submitter.name;
         }
-
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            serialInput.value = buffer.trim();
-            buffer = '';
-
-            focusNextField(serialInput);
+        const active = document.activeElement;
+        if (active && active.name) {
+            return active.name;
         }
+        return '';
+    }
 
-        if (e.key !== 'Enter') {
-            e.preventDefault();
+    function isAcaoSemSerial(nome) {
+        return nome === 'trocar_modelo' || nome === 'confirmar_modelo' || nome === 'encerrar_caixa';
+    }
+
+    function normalizarSerial(val) {
+        return (val || '').trim().toUpperCase().slice(-18);
+    }
+
+    function getCookie(name) {
+        const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const match = document.cookie.match(new RegExp('(?:^|; )' + escaped + '=([^;]*)'));
+        return match ? decodeURIComponent(match[1]) : null;
+    }
+
+    function deleteCookie(name) {
+        document.cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    }
+
+    function lockBipagemForm(serialInput, inserirBtn, trocarBtn) {
+        if (serialInput) {
+            serialInput.readOnly = true;
+            serialInput.style.pointerEvents = 'none';
         }
-    });
-
-    ['paste', 'drop', 'contextmenu'].forEach(evt =>
-        serialInput.addEventListener(evt, (e) => e.preventDefault())
-    );
-
-    function focusNextField(currentField) {
-        const focusables = Array.from(document.querySelectorAll('input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])'));
-        const index = focusables.indexOf(currentField);
-        if (index !== -1 && index < focusables.length - 1) {
-            focusables[index + 1].focus();
+        if (inserirBtn) {
+            inserirBtn.disabled = true;
+        }
+        if (trocarBtn) {
+            trocarBtn.disabled = true;
         }
     }
 
-    const clearButton = document.getElementById('clear-button');
+    function unlockBipagemForm(serialInput, inserirBtn, trocarBtn) {
+        if (serialInput) {
+            serialInput.readOnly = false;
+            serialInput.style.pointerEvents = '';
+        }
+        if (inserirBtn) {
+            inserirBtn.disabled = false;
+        }
+        if (trocarBtn) {
+            trocarBtn.disabled = false;
+        }
+    }
 
-    clearButton.addEventListener('click', () => {
-        const form = document.querySelector('form');
+    function criarLinhaBipagem(item) {
+        const tr = document.createElement('tr');
+        let acoesGerente = '';
+        if (isGerentePa && !isVisualizadorMaster) {
+            acoesGerente = `
+                <td>${item.comentarios}</td>
+                <td>
+                    ${caixaFinalizada ? '<span class="badge-fechado">—</span>' : `
+                    <div class="icon-actions">
+                        <a href="/inventario/lote/${loteId}/caixas/${caixaId}/?edit_serial=${item.id}">
+                            <button type="button"><i class="fa-solid fa-pencil"></i></button>
+                        </a>
+                        <form method="post" action="/inventario/serial/${item.id}/excluir/" style="display:inline;">
+                            <input type="hidden" name="csrfmiddlewaretoken" value="${csrfToken}">
+                            <button type="submit" onclick="return confirm('Deseja excluir este serial?')">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>`}
+                </td>`;
+        }
+        tr.innerHTML = `
+            <td>#${item.nr_caixa}</td>
+            <td>#${item.unidade}</td>
+            <td>${item.nrserie}</td>
+            <td>${item.modelo}</td>
+            <td>${item.estado}</td>
+            <td>${item.mensagem_ferramenta_inv}</td>
+            <td>${item.observacao}</td>
+            ${acoesGerente}
+        `;
+        return tr;
+    }
 
-        form.querySelectorAll('input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])')
-            .forEach(field => {
-                field.value = '';
-            });
+    function adicionarLinhaTabela(item) {
+        const tbody = document.getElementById('bipagem-tbody');
+        if (!tbody) {
+            return;
+        }
+        tbody.insertBefore(criarLinhaBipagem(item), tbody.firstChild);
+        while (tbody.children.length > 10) {
+            tbody.removeChild(tbody.lastChild);
+        }
+    }
 
-        buffer = '';
-    });
+    async function enviarSerialAjax(serial) {
+        const response = await fetch(inserirSerialUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': csrfToken,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: `serial=${encodeURIComponent(serial)}`,
+        });
+        return response.json();
+    }
 
     document.addEventListener('DOMContentLoaded', function () {
+        const form = document.querySelector('.form-1col');
         const serialInput = document.getElementById('serial-input');
-        if (serialInput) {
-            serialInput.focus();
+        const clearButton = document.getElementById('clear-button');
+        const inserirBtn = document.getElementById('inserir-button');
+        const trocarBtn = document.getElementById('trocar-modelo-button');
+
+        let ultimoSerialProcessado = null;
+        let buffer = '';
+        let lastInputTime = Date.now();
+        const INTERVALO_MAXIMO = 250;
+
+        const ultimoSerialCookie = getCookie('ultimo_serial');
+        if (ultimoSerialCookie) {
+            ultimoSerialProcessado = normalizarSerial(ultimoSerialCookie);
+            deleteCookie('ultimo_serial');
+        }
+
+        function focarSerialInput() {
+            if (!serialInput || modoEdicao || modoSelecaoModelo || !modoBipagem) {
+                return;
+            }
+
+            const aplicarFoco = () => serialInput.focus({ preventScroll: true });
+
+            aplicarFoco();
+            requestAnimationFrame(aplicarFoco);
+            setTimeout(aplicarFoco, 0);
+            setTimeout(aplicarFoco, 50);
+        }
+
+        function serialConsecutivoDuplicado(serial) {
+            const normalizado = normalizarSerial(serial);
+            return Boolean(normalizado && normalizado === ultimoSerialProcessado);
+        }
+
+        function limparInputSerial() {
+            buffer = '';
+            if (!serialInput) {
+                return;
+            }
+            serialInput.value = '';
+            if (!podeDigitar && !modoEdicao && !modoSelecaoModelo) {
+                serialInput.setAttribute('readonly', 'readonly');
+                serialInput.style.color = 'transparent';
+                serialInput.style.textShadow = '0 0 0 gray';
+            }
+            focarSerialInput();
+        }
+
+        function aplicarSerialNormalizado(serial) {
+            const normalizado = normalizarSerial(serial);
+            if (!normalizado) {
+                return null;
+            }
+
+            if (serialInput) {
+                serialInput.removeAttribute('readonly');
+                serialInput.readOnly = false;
+                serialInput.style.pointerEvents = '';
+                serialInput.value = normalizado;
+            }
+
+            return normalizado;
+        }
+
+        async function processarSerial(normalizado) {
+            if (!normalizado || serialConsecutivoDuplicado(normalizado)) {
+                limparInputSerial();
+                return;
+            }
+
+            ultimoSerialProcessado = normalizado;
+            lockBipagemForm(serialInput, inserirBtn, trocarBtn);
+
+            try {
+                const data = await enviarSerialAjax(normalizado);
+                if (data.status === 'ignorado') {
+                    limparInputSerial();
+                    return;
+                }
+                if (data.status !== 'ok') {
+                    alert(data.mensagem || 'Não foi possível inserir o serial.');
+                    if (data.limite_atingido) {
+                        lockBipagemForm(serialInput, inserirBtn, trocarBtn);
+                    }
+                    return;
+                }
+                adicionarLinhaTabela(data.bipagem);
+                limparInputSerial();
+                if (data.limite_atingido) {
+                    alert(`Limite de ${data.limite_por_pa} bipagens atingido.`);
+                    lockBipagemForm(serialInput, inserirBtn, trocarBtn);
+                }
+            } catch (err) {
+                alert('Falha ao inserir serial. Tente novamente.');
+            } finally {
+                if (!serialInput || !serialInput.disabled) {
+                    unlockBipagemForm(serialInput, inserirBtn, trocarBtn);
+                    focarSerialInput();
+                }
+            }
+        }
+
+        if (form && modoBipagem) {
+            form.addEventListener('submit', async function (e) {
+                const nomeSubmit = nomeBotaoSubmit(e.submitter);
+
+                if (isAcaoSemSerial(nomeSubmit)) {
+                    return;
+                }
+
+                e.preventDefault();
+
+                const normalizado = aplicarSerialNormalizado(serialInput ? serialInput.value : '');
+                await processarSerial(normalizado);
+            });
+        }
+
+        if (serialInput && modoBipagem && !podeDigitar) {
+            serialInput.setAttribute('readonly', 'readonly');
+            serialInput.setAttribute('autocomplete', 'off');
+            serialInput.value = '';
+            serialInput.style.color = 'transparent';
+            serialInput.style.textShadow = '0 0 0 gray';
+
+            ['paste', 'drop', 'contextmenu', 'copy', 'cut', 'input'].forEach(evt =>
+                serialInput.addEventListener(evt, e => e.preventDefault())
+            );
+
+            serialInput.addEventListener('keydown', e => {
+                const now = Date.now();
+
+                if (now - lastInputTime > INTERVALO_MAXIMO) {
+                    buffer = '';
+                }
+
+                lastInputTime = now;
+
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+
+                    const serial = buffer.trim();
+                    buffer = '';
+
+                    if (serial.length > 0) {
+                        const normalizado = normalizarSerial(serial);
+                        if (serialConsecutivoDuplicado(normalizado)) {
+                            limparInputSerial();
+                        } else if (normalizado) {
+                            aplicarSerialNormalizado(serial);
+                            processarSerial(normalizado);
+                        }
+                    }
+                } else if (e.key.length === 1) {
+                    buffer += e.key;
+                }
+
+                e.preventDefault();
+            });
+        }
+
+        const focoSerial = getCookie('foco_serial');
+        if (focoSerial === 'true') {
+            deleteCookie('foco_serial');
+            focarSerialInput();
+        }
+
+        if (clearButton) {
+            clearButton.addEventListener('click', () => {
+                window.location.href = window.location.pathname;
+            });
         }
     });
-
 </script>
+
 {% endblock %}

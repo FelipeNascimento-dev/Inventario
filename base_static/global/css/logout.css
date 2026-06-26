@@ -14,10 +14,10 @@
 }
 
 .form-logout {
-    background: #d2f5e3;
-    border: 1.5px solid #a6dbb5;
-    border-radius: 14px;
-    box-shadow: 0 4px 24px #b7dfce30;
+    background: var(--color-bg-surface);
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
     padding: 36px 36px 32px 36px;
     max-width: 370px;
     width: 100%;
@@ -27,7 +27,7 @@
 }
 
 .form-logout h2 {
-    color: #205a3e;
+    color: var(--color-text-heading);
     font-size: 1.45rem;
     font-weight: 600;
     margin-bottom: 18px;
@@ -48,14 +48,13 @@
     width: 100%;
     height: 48px;
     font-size: 1.12rem;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     font-weight: 600;
     text-align: center;
     outline: none;
-    border: none;
     box-shadow: none;
     text-decoration: none;
-    transition: none;
+    transition: background var(--transition-base);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -63,14 +62,22 @@
 }
 
 .logout-confirm-button {
-    background: #84c9a0;
-    color: #fff;
+    background: var(--color-primary);
+    color: var(--color-text-on-primary);
     border: none;
 }
 
+.logout-confirm-button:hover {
+    background: var(--color-primary-hover);
+}
+
 .logout-cancel-button {
-    background: #d2f5e3;
-    color: #205a3e;
-    border: 1.5px solid #a6dbb5;
+    background: var(--color-bg-muted);
+    color: var(--color-text-heading);
+    border: 1.5px solid var(--color-border-strong);
     text-decoration: none !important;
+}
+
+.logout-cancel-button:hover {
+    background: var(--color-bg-input);
 }
