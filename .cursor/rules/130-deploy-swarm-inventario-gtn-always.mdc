@@ -1,0 +1,98 @@
+---
+description: Deploy Docker Swarm Inventario GTN — stack, Actions, HAProxy e env do servidor.
+globs: "**/*"
+alwaysApply: true
+---
+
+# Deploy Swarm — Inventario GTN (produção)
+
+Fonte de verdade: `docs/contexto_infra_swarm_cursor.md` (§5.3) e `docs/deploy_inventario_gtn_servidor.md`.
+
+## Identidade fixa (não alterar entre deploys)
+
+| Item | Valor |
+|------|--------|
+| `STACK_NAME` | `inventario_gtn` |
+| Serviço | `inventario_gtn_web` |
+| `APP_PORT` | `8000` (`mode: host`) |
+| Réplicas | `3`, `max_replicas_per_node: 1` |
+| Env servidor | `/opt/envs/inventario-gtn.env` |
+| Imagem | `ghcr.io/c-trends-bpo/inventario:${GITHUB_SHA}` |
+
+Deploy oficial: push em `main` → `.github/workflows/deploy-swarm.yml` no runner `python-app-01`.
+
+## Regras de stack e rolling update
+
+- Porta publicada: **`mode: host`** — obrigatório com HAProxy na frente.
+- `deploy.update_config.order`: **`stop-first`** — **nunca** `start-first` (causa `host-mode port already in use` e rollback).
+- `docker stack deploy` sempre com **`--with-registry-auth`**.
+- Não criar stack paralela no Portainer; não mudar `STACK_NAME`.
+- `ALLOWED_HOSTS` deve começar com `localhost,127.0.0.1` (healthcheck Docker/Swarm).
+- HAProxy: encaminhar path **completo** (`/inventario/...`); não remover prefixo `/inventario`.
+- `LOGIN_URL` / `LOGOUT_REDIRECT_URL` alinhados ao prefixo real (`/inventario/login/`).
+
+## Ao alterar Dockerfile, workflow ou `deploy/stack.yml`
+
+1. Preservar `ARG CACHE_BUST` + `build-args: CACHE_BUST=${{ github.sha }}` (runner self-hosted reutiliza `COPY . .` sem isso).
+2. Manter `docker pull` da tag do commit antes de migrations e `stack deploy`.
+3. `Wait for replicas`: timeout **≥ 600s**, **3/3 Running na mesma tag SHA**.
+4. Não versionar secrets; `IMAGE` vem do workflow, não do `.env` do servidor.
+5. Atualizar documentação se mudar comportamento operacional.
+
+Scripts operacionais: `deploy/scripts/fix-inventario-gtn-allowed-hosts.sh`, `deploy/scripts/force-inventario-gtn-image-rollout.sh` (rodar no **manager**).
+
+## Nova variável de ambiente — obrigatório
+
+Sempre que o código passar a ler **nova** variável de ambiente em produção (ou alterar semântica de uma existente), o agente **deve** entregar **no final da resposta** a seção abaixo, preenchida, **antes** de considerar a tarefa concluída.
+
+Não basta alterar só `setup/settings.py` ou `.env.example`.
+
+### Template obrigatório (copiar e preencher para o usuário)
+
+```markdown
+## Alteração no servidor — `/opt/envs/inventario-gtn.env`
+
+**Variável:** `NOME_DA_VAR`
+**Obrigatória em produção:** sim/não
+**Valor de exemplo (não é produção):** `valor-exemplo`
+**Usada em:** `arquivo/função`
+
+### Arquivos atualizados no repositório
+- [ ] `.env.example`
+- [ ] `deploy/stack.yml` (`environment:` do serviço `web`)
+- [ ] `setup/settings.py` (ou `local_settings.example.py` se só dev local)
+- [ ] `.github/workflows/deploy-swarm.yml` (se validação extra for necessária)
+- [ ] `docs/deploy_inventario_gtn_servidor.md` (se impacto operacional)
+
+### Passos no manager (`python-app-01`)
+
+1. Editar o env (não versionar valores reais):
+   `sudo nano /opt/envs/inventario-gtn.env`
+2. Adicionar/ajustar a linha:
+   `NOME_DA_VAR=valor-real-de-producao`
+3. Aplicar no serviço (escolher uma opção):
+   - **Recomendado:** push em `main` e aguardar Actions concluir; ou
+   - **Imediato:** `docker service update --env-add NOME_DA_VAR=valor-real --force inventario_gtn_web`
+4. Validar:
+   `docker service ps inventario_gtn_web --filter desired-state=running`
+   e, se aplicável, `docker exec $(docker ps -q --filter name=inventario_gtn_web | head -1) printenv NOME_DA_VAR`
+
+### Impacto / cuidados
+- (ex.: exige redeploy? afeta ALLOWED_HOSTS/CSRF? reinicia tasks?)
+```
+
+Se a variável for **apenas desenvolvimento local**, declarar explicitamente: **não** adicionar em `/opt/envs/inventario-gtn.env`; usar `setup/local_settings.py`.
+
+## Checklist rápido pós-deploy
+
+```bash
+docker service ps inventario_gtn_web --filter "desired-state=running" --format '{{.Node}} {{.Image}}'
+# esperado: 3 linhas, uma única tag SHA
+```
+
+## Proibido
+
+- Commitar `/opt/envs/inventario-gtn.env` ou secrets reais.
+- `start-first` com porta `mode: host`.
+- `docker service update --force` genérico sem entender imagem/tag (preferir script de rollout).
+- Assumir que HTML/CSS mudou em produção sem nova imagem nas 3 réplicas.

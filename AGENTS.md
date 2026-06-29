@@ -13,4 +13,5 @@ Regras principais:
 - Nunca assumir que `Group` sozinho identifica o cliente real.
 - Quando depender de cliente/PA, usar UserDesignation e GAI.
 - Não versionar secrets.
+- Deploy produção: Swarm `inventario_gtn` — ver `.cursor/rules/130-deploy-swarm-inventario-gtn-always.mdc` e `docs/contexto_infra_swarm_cursor.md`. Nova variável de env exige orientação explícita para `/opt/envs/inventario-gtn.env`.
 - Ao descobrir regra de negócio recorrente, registrar e propor nova rule em `.cursor/rules/2xx-business-<dominio>-auto.mdc`.

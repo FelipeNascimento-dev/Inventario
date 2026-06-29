@@ -163,6 +163,8 @@ Substituir `minha-app` pelo identificador curto da aplicação (ex.: `inventario
 - `docker stack deploy` com o **mesmo** `STACK_NAME` **atualiza** o serviço existente (não cria stack paralela).
 - O ID da task muda no rolling update — isso **não é bug**; o hostname template permanece estável por nó (`inventario-gtn-python-app-01`, etc.).
 - O Portainer pode mostrar uma task nova e outra `Shutdown` durante o update — é o rolling update funcionando.
+- `docker stack ps` acumula histórico (`Shutdown`, `Rejected` de deploys antigos) — **não** indica excesso de containers ativos; validar só tasks `desired-state=running`.
+- Com porta `mode: host`, o update deve ser **`stop-first`**; `start-first` provoca rollback por porta em uso (seção 3 e 5.3).
 
 ### Proibido
 
@@ -205,6 +207,60 @@ Exemplo de variável no `.env`:
 ```env
 APP_PORT=8000
 ```
+
+---
+
+## 5.3 Inventario GTN — padrão validado em produção
+
+Configuração confirmada no cluster `python-app-01/02/03` (Jun/2026). Usar como referência para novas apps Django no mesmo Swarm.
+
+| Item | Valor / decisão |
+|------|-----------------|
+| `STACK_NAME` | `inventario_gtn` |
+| Serviço | `inventario_gtn_web` |
+| `APP_PORT` | `8000` (`mode: host`) |
+| Réplicas | `3` (`max_replicas_per_node: 1`) |
+| Rolling update | `parallelism: 1`, **`order: stop-first`** (obrigatório com host port) |
+| Imagem | `ghcr.io/c-trends-bpo/inventario:${GITHUB_SHA}` |
+| Env no servidor | `/opt/envs/inventario-gtn.env` |
+| Runner | `python-app-01`, labels `self-hosted`, `linux`, `swarm` |
+| HAProxy backend | `192.168.0.223/224/225:8000`, path completo `/inventario/...` |
+| Domínio | `www.centralretencao.com.br` |
+
+### Scripts operacionais (`deploy/scripts/`)
+
+```text
+fix-inventario-gtn-allowed-hosts.sh   — corrige typo ALLOWED_HOSTS no .env e força service update
+force-inventario-gtn-image-rollout.sh — alinha 3/3 na mesma tag (manager + stop-first)
+```
+
+Executar scripts **no manager** (`python-app-01`), com `docker login ghcr.io` ativo quando necessário.
+
+### Checklist pós-deploy (sucesso)
+
+```bash
+docker service ls | grep inventario_gtn_web          # 3/3
+docker service ps inventario_gtn_web \
+  --filter "desired-state=running" \
+  --format '{{.Node}} {{.Image}}'                    # uma única tag SHA
+curl -fsS -H 'Host: www.centralretencao.com.br' \
+  http://192.168.0.223:8000/health/                  # 200 em cada nó (.224, .225)
+```
+
+Histórico longo em `docker stack ps` (tasks `Shutdown`, `Rejected` antigas) é **normal** — só importam as 3 tasks `Running` com a mesma imagem.
+
+### Problemas já encontrados e soluções
+
+| Sintoma | Solução |
+|---------|---------|
+| 404 Django em `/inventario/login/` via HAProxy | Não remover prefixo `/inventario` no HAProxy |
+| HTML não muda após deploy | `CACHE_BUST` no build; validar mesma tag nas 3 réplicas |
+| `Rejected` / `No such image` | `docker pull` no workflow; GHCR internal; `--with-registry-auth` |
+| `host-mode port already in use` + rollback | `stop-first` (nunca `start-first` com `mode: host`) |
+| Réplicas com tags diferentes | `force-inventario-gtn-image-rollout.sh <sha>` no manager |
+| Actions falha no wait com app no ar | Timeout 600s; validar tag única; re-run se `3/3` já estável |
+
+Documentação operacional detalhada: `docs/deploy_inventario_gtn_servidor.md`.
 
 ---
 
@@ -290,7 +346,7 @@ Migrations (container one-shot)
         ↓
 docker stack deploy no Swarm
         ↓
-Wait for replicas (3/3 estável, timeout 600s)
+Wait for replicas (3/3, mesma tag SHA, timeout 600s)
         ↓
 Portainer exibe o estado da stack
         ↓
@@ -346,7 +402,10 @@ projeto/
 ├── .dockerignore
 ├── .env.example
 ├── deploy/
-│   └── stack.yml
+│   ├── stack.yml
+│   └── scripts/
+│       ├── fix-inventario-gtn-allowed-hosts.sh
+│       └── force-inventario-gtn-image-rollout.sh
 └── .github/
     └── workflows/
         └── deploy-swarm.yml
@@ -912,7 +971,7 @@ jobs:
           #
           # Critérios de sucesso:
           #   docker service ls → inventario_gtn_web 3/3
-          #   docker service ps → 3 tasks com CurrentState "Running"
+          #   docker service ps → 3 tasks Running na MESMA tag (${GITHUB_SHA})
           #
           # Ver implementação completa em .github/workflows/deploy-swarm.yml
 ```
@@ -940,14 +999,19 @@ Com `replicas: 3`, `parallelism: 1`, `order: stop-first` (obrigatório com **por
 
 - `docker service ls --format '{{.Name}} {{.Replicas}}' | awk '$1 == svc'`
 - `docker service ps` contando tasks com `CurrentState` = `Running`
+- **Mesma tag** em todas as tasks Running (`count` de imagens com o SHA do commit = 3)
+
+**Rollback `host-mode port already in use`:** ocorre com `start-first` + porta `mode: host`. O Swarm desfaz o update (`rollback: update rolled back`). Corrigir `deploy/stack.yml` para `stop-first` e rodar `force-inventario-gtn-image-rollout.sh` no manager — **não** usar `start-first` em `docker service update` manual.
 
 **Falso negativo no Actions:** o job pode falhar em `Wait for replicas` mesmo com a aplicação já respondendo via HAProxy — o `docker stack deploy` já aplicou a stack; validar com `docker service ls | grep <stack>` no servidor. Re-run do workflow ou aguardar estabilização costuma resolver.
 
-**Réplicas em tags diferentes (HTML “às vezes muda”):** se `docker service ps ... --format '{{.Image}}'` listar **mais de uma tag** entre tasks `Running`, o rolling update não terminou — HAProxy alterna nó antigo/novo. O wait do workflow exige **3/3 na mesma tag** do commit. Correção manual no servidor:
+**Réplicas em tags diferentes (HTML “às vezes muda”):** se `docker service ps ... --format '{{.Image}}'` listar **mais de uma tag** entre tasks `Running`, o rolling update não terminou — HAProxy alterna nó antigo/novo. O wait do workflow exige **3/3 na mesma tag** do commit. Correção manual no **manager**:
 
 ```bash
 bash deploy/scripts/force-inventario-gtn-image-rollout.sh <sha-do-commit>
 ```
+
+O script usa `--update-order stop-first` e `--with-registry-auth`.
 
 **Referência:** `.github/workflows/deploy-swarm.yml` (Inventario GTN).
 
@@ -986,6 +1050,8 @@ Se o `cat`/`head` no container mostrar HTML antigo, o problema é **build/imagem
 
 ---
 
+# 18. Autenticação no GHCR
+
 ## Abordagem preferida: `GITHUB_TOKEN`
 
 Na fase inicial, **não** criar secrets `GHCR_USER` e `GHCR_PAT`.
@@ -1014,6 +1080,7 @@ Requisitos:
 - `packages: write` no job (ou no workflow) para publicar imagens no GHCR.
 - `docker stack deploy --with-registry-auth` repassa as credenciais do runner ao Swarm para pull nos nós.
 - Pacote GHCR com visibilidade compatível com o repositório (interno ou vinculado ao repo).
+- Se workers falharem com `No such image` em deploy manual fora do Actions: executar `docker login ghcr.io` uma vez em cada nó (`python-app-01/02/03`) ou usar PAT com `read:packages`.
 
 ## Fallback: PAT dedicado (opcional)
 
@@ -1079,27 +1146,33 @@ docker stack ps minha_app --no-trunc
 docker service logs -f minha_app_web
 ```
 
-## Forçar atualização de serviço
+## Forçar rollout de imagem (réplicas em tags diferentes)
+
+No manager, preferir o script do repositório em vez de `docker service update --force` genérico:
 
 ```bash
-docker service update --force minha_app_web
-```
-
-## Remover stack
-
-```bash
-docker stack rm minha_app
+bash deploy/scripts/force-inventario-gtn-image-rollout.sh <sha-do-commit>
 ```
 
 ## Validar réplicas após deploy (ou Actions com wait falho)
 
 ```bash
 docker service ls --format 'table {{.Name}}\t{{.Replicas}}' | grep inventario_gtn
-docker service ps inventario_gtn_web --no-trunc
+docker service ps inventario_gtn_web \
+  --filter "desired-state=running" \
+  --format '{{.Node}} {{.Image}}'
 docker service logs inventario_gtn_web --tail 50
 ```
 
+Esperado: **3 linhas**, **uma única tag** `ghcr.io/c-trends-bpo/inventario:<sha>`.
+
 Se `3/3` mas o workflow falhou em `Wait for replicas`, o deploy já foi aplicado — ver seção 17 (falso negativo por timeout ou polling).
+
+## Remover stack
+
+```bash
+docker stack rm minha_app
+```
 
 ---
 
@@ -1193,6 +1266,7 @@ Ao adaptar o projeto, o Cursor deve:
 26. Após `build-push`, executar **`docker pull`** da tag do commit antes de migrations e `stack deploy` (seção 17).
 27. Em runner self-hosted, usar **`CACHE_BUST=${{ github.sha }}`** no build para não reutilizar layer `COPY . .` com código antigo (seção 12 e 17).
 28. No HAProxy, **não remover prefixo de path** ao encaminhar para Django montado em subpath (ex.: `/inventario/`); alinhar `LOGIN_URL` com o prefixo real (seção 20).
+29. Manter scripts em `deploy/scripts/` para correções operacionais recorrentes (ALLOWED_HOSTS, rollout de imagem) — ver seção 5.3.
 
 ---
 
