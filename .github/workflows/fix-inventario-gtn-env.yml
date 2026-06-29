@@ -1,0 +1,43 @@
+name: Fix Inventario GTN ALLOWED_HOSTS on server
+
+on:
+  workflow_dispatch:
+
+env:
+  ENV_FILE: /opt/envs/inventario-gtn.env
+  SERVICE_NAME: inventario_gtn_web
+
+jobs:
+  fix-env:
+    runs-on: [self-hosted, linux, swarm]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Fix ALLOWED_HOSTS and force service update
+        run: bash deploy/scripts/fix-inventario-gtn-allowed-hosts.sh
+
+      - name: Wait for replicas
+        run: |
+          DESIRED=3
+          TIMEOUT=300
+          ELAPSED=0
+
+          while [[ "${ELAPSED}" -lt "${TIMEOUT}" ]]; do
+            RUNNING=$(docker service ls --filter "name=${SERVICE_NAME}" --format '{{.Replicas}}' | head -1)
+            echo "  ${ELAPSED}s — réplicas: ${RUNNING:-desconhecido}"
+
+            if [[ "${RUNNING}" == "${DESIRED}/${DESIRED}" ]]; then
+              echo "Serviço estável: ${RUNNING}"
+              docker service ps "${SERVICE_NAME}" --filter "desired-state=running"
+              exit 0
+            fi
+
+            sleep 15
+            ELAPSED=$((ELAPSED + 15))
+          done
+
+          echo "Timeout aguardando ${DESIRED}/${DESIRED} réplicas." >&2
+          docker service ps "${SERVICE_NAME}" --no-trunc
+          exit 1

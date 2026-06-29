@@ -58,7 +58,7 @@ Conteúdo (preencher valores reais de produção; modelo em `.env.example` na ra
 DJANGO_SETTINGS_MODULE=setup.settings
 DEBUG=False
 SECRET_KEY=<gerar-chave-segura>
-ALLOWED_HOSTS=www.centralretencao.com.br,192.168.0.223,192.168.0.224,192.168.0.225
+ALLOWED_HOSTS=localhost,127.0.0.1,www.centralretencao.com.br,192.168.0.223,192.168.0.224,192.168.0.225,192.168.0.213
 CSRF_TRUSTED_ORIGINS=https://www.centralretencao.com.br
 
 DB_NAME=inventario-gtn-db
@@ -83,6 +83,22 @@ LOG_LEVEL=INFO
 **Nota:** `IMAGE` **não** entra neste arquivo — o workflow exporta `IMAGE=ghcr.io/c-trends-bpo/inventario:<sha>` no passo de deploy.
 
 `APP_PORT=8000` é a porta escolhida para o Inventario GTN neste cluster. Novas aplicações devem usar porta diferente — ver seção 5.2 em `docs/contexto_infra_swarm_cursor.md`.
+
+**Importante:** incluir `localhost,127.0.0.1` no início de `ALLOWED_HOSTS`. O healthcheck interno do Docker Swarm usa `Host: localhost` (ou IP loopback); sem esses hosts, Django retorna `400 DisallowedHost` e o Swarm encerra a task após ~2 minutos. **Não** duplicar o nome da variável no valor (typo comum: `ALLOWED_HOSTS=ALLOWED_HOSTS=...`).
+
+Correção rápida no servidor (sem esperar deploy):
+
+```bash
+bash deploy/scripts/fix-inventario-gtn-allowed-hosts.sh
+```
+
+Ou manualmente:
+
+```bash
+sudo sed -i 's/^ALLOWED_HOSTS=ALLOWED_HOSTS=/ALLOWED_HOSTS=/' /opt/envs/inventario-gtn.env
+sudo grep ALLOWED_HOSTS /opt/envs/inventario-gtn.env
+docker service update --env-add ALLOWED_HOSTS=localhost,127.0.0.1,www.centralretencao.com.br,192.168.0.223,192.168.0.224,192.168.0.225,192.168.0.213 --force inventario_gtn_web
+```
 
 ### Gerar `SECRET_KEY` (exemplo)
 
@@ -187,6 +203,71 @@ docker service logs -f inventario_gtn_web
 # Rollback manual (se necessário)
 docker service rollback inventario_gtn_web
 ```
+
+---
+
+## 9. Troubleshooting — réplicas `Shutdown Complete` após ~2 minutos
+
+### Sintoma
+
+```bash
+docker service ls | grep inventario
+# 0/3 ou ciclo constante — nunca estabiliza 3/3
+
+docker service ps inventario_gtn_web --filter "desired-state=shutdown" | head -5
+# Shutdown Complete em todas, coluna ERROR vazia, ~130s após start
+```
+
+HAProxy pode continuar marcando backends como saudáveis (healthcheck no IP do nó, que está em `ALLOWED_HOSTS`), enquanto o Swarm mata o container por falha no healthcheck **interno**.
+
+### Causa raiz
+
+1. **`ALLOWED_HOSTS` malformado** — typo `ALLOWED_HOSTS=ALLOWED_HOSTS=localhost,...` faz Django interpretar o primeiro host como literal `ALLOWED_HOSTS=localhost`.
+2. **`localhost` / `127.0.0.1` ausentes** — healthcheck Docker usa `curl http://localhost:$APP_PORT/health/`; `SecurityMiddleware` rejeita com `400 DisallowedHost` antes da view.
+
+Timing típico: `start_period: 40s` + `interval: 30s` × `retries: 3` ≈ **100–130 segundos**.
+
+### Diagnóstico
+
+```bash
+grep ALLOWED_HOSTS /opt/envs/inventario-gtn.env
+# Deve haver UMA ocorrência de "ALLOWED_HOSTS=" no início da linha
+
+CONTAINER_ID=$(docker ps -q --filter "name=inventario_gtn_web" | head -1)
+docker exec "$CONTAINER_ID" curl -sv http://localhost:8000/health/ 2>&1 | tail -20
+# 400 + Invalid HTTP_HOST header: 'localhost' confirma a causa
+
+docker service logs inventario_gtn_web --tail 200 2>&1 | grep -iE "health|disallowed|400" || true
+```
+
+### Correção
+
+```bash
+# Opção A — script do repositório (no manager, após checkout ou copiar o script)
+bash deploy/scripts/fix-inventario-gtn-allowed-hosts.sh
+
+# Opção B — manual
+sudo nano /opt/envs/inventario-gtn.env
+# Linha correta (sem duplicar o nome da variável):
+# ALLOWED_HOSTS=localhost,127.0.0.1,www.centralretencao.com.br,192.168.0.223,192.168.0.224,192.168.0.225,192.168.0.213
+
+docker service update \
+  --env-add ALLOWED_HOSTS=localhost,127.0.0.1,www.centralretencao.com.br,192.168.0.223,192.168.0.224,192.168.0.225,192.168.0.213 \
+  --force inventario_gtn_web
+```
+
+Aguardar ~3 minutos e validar:
+
+```bash
+docker service ls | grep inventario          # 3/3
+docker exec $(docker ps -q --filter "name=inventario_gtn_web" | head -1) curl -f http://localhost:8000/health/
+```
+
+### Prevenção (repositório)
+
+- `.env.example` e esta documentação incluem `localhost,127.0.0.1`.
+- `deploy/stack.yml` usa healthcheck com `-H 'Host: www.centralretencao.com.br'` e `127.0.0.1` (resiliente mesmo se alguém esquecer localhost no `.env`).
+- Workflow `deploy-swarm.yml` valida `APP_PORT`, corrige typo `ALLOWED_HOSTS=ALLOWED_HOSTS=` e aguarda `3/3` réplicas antes de concluir o job.
 
 ---
 

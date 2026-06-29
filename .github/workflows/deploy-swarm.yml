@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 env:
   STACK_NAME: inventario_gtn
@@ -63,6 +64,34 @@ jobs:
             "${IMAGE}" \
             python manage.py migrate --noinput
 
+      - name: Validate and fix environment file
+        run: |
+          if [[ ! -f "${ENV_FILE}" ]]; then
+            echo "Arquivo de ambiente ausente: ${ENV_FILE}" >&2
+            exit 1
+          fi
+
+          # Corrige typo ALLOWED_HOSTS=ALLOWED_HOSTS=... (healthcheck Docker falha com DisallowedHost)
+          if grep -qE '^ALLOWED_HOSTS=ALLOWED_HOSTS=' "${ENV_FILE}"; then
+            sed -i 's/^ALLOWED_HOSTS=ALLOWED_HOSTS=/ALLOWED_HOSTS=/' "${ENV_FILE}"
+            echo "Corrigido prefixo duplicado em ALLOWED_HOSTS"
+          fi
+
+          set -a
+          # shellcheck disable=SC1090
+          source "${ENV_FILE}"
+          set +a
+
+          : "${APP_PORT:?APP_PORT ausente no ENV_FILE}"
+
+          if [[ -z "${ALLOWED_HOSTS:-}" ]]; then
+            echo "ALLOWED_HOSTS ausente no ENV_FILE" >&2
+            exit 1
+          fi
+
+          echo "APP_PORT=${APP_PORT}"
+          echo "ALLOWED_HOSTS=${ALLOWED_HOSTS}"
+
       - name: Deploy stack
         run: |
           set -a
@@ -75,7 +104,35 @@ jobs:
             -c "${STACK_FILE}" \
             "${STACK_NAME}"
 
-      - name: Check services
+      - name: Wait for replicas
         run: |
-          docker stack services "${STACK_NAME}"
-          docker stack ps "${STACK_NAME}" --no-trunc
+          set -a
+          source "${ENV_FILE}"
+          set +a
+
+          SERVICE="${STACK_NAME}_web"
+          DESIRED=3
+          TIMEOUT=300
+          ELAPSED=0
+
+          echo "Aguardando ${DESIRED}/${DESIRED} réplicas running em ${SERVICE} (timeout ${TIMEOUT}s)..."
+
+          while [[ "${ELAPSED}" -lt "${TIMEOUT}" ]]; do
+            RUNNING=$(docker service ls --filter "name=${SERVICE}" --format '{{.Replicas}}' | head -1)
+            echo "  ${ELAPSED}s — réplicas: ${RUNNING:-desconhecido}"
+
+            if [[ "${RUNNING}" == "${DESIRED}/${DESIRED}" ]]; then
+              echo "Serviço estável: ${RUNNING}"
+              docker stack services "${STACK_NAME}"
+              docker stack ps "${STACK_NAME}" --no-trunc
+              exit 0
+            fi
+
+            sleep 15
+            ELAPSED=$((ELAPSED + 15))
+          done
+
+          echo "Timeout: serviço não atingiu ${DESIRED}/${DESIRED} réplicas running." >&2
+          docker service ps "${SERVICE}" --no-trunc
+          docker service logs "${SERVICE}" --tail 100 2>&1 || true
+          exit 1

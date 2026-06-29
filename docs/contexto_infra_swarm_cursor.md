@@ -394,7 +394,7 @@ DJANGO_SETTINGS_MODULE=config.settings.production
 DEBUG=False
 SECRET_KEY=
 APP_PORT=
-ALLOWED_HOSTS=
+ALLOWED_HOSTS=localhost,127.0.0.1,www.centralretencao.com.br,192.168.0.223,192.168.0.224,192.168.0.225
 CSRF_TRUSTED_ORIGINS=
 DATABASE_URL=
 REDIS_URL=
@@ -442,6 +442,8 @@ Status HTTP esperado:
 O endpoint deve ser leve e não deve executar consultas pesadas.
 
 Pode validar apenas se a aplicação está viva.
+
+**Django + Swarm:** o `SecurityMiddleware` valida o header `Host` antes da view. Incluir `localhost,127.0.0.1` em `ALLOWED_HOSTS` **ou** configurar o healthcheck do stack com IP loopback e header `Host` do domínio de produção (ex.: `curl -fsS -H 'Host: www.exemplo.com.br' http://127.0.0.1:$${APP_PORT}/health/`). Sem isso, o healthcheck retorna `400 DisallowedHost` e o Swarm encerra a task após ~2 minutos.
 
 ## FastAPI
 
@@ -674,7 +676,7 @@ services:
           memory: 2048M
 
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:$${APP_PORT}/health/"]
+      test: ["CMD-SHELL", "curl -fsS -H 'Host: www.centralretencao.com.br' http://127.0.0.1:$${APP_PORT}/health/ || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -1041,7 +1043,7 @@ Ao adaptar o projeto, o Cursor deve:
 19. Usar `app_network` como rede externa.
 20. Garantir que logs saiam em stdout/stderr para Docker/Portainer/Loki.
 21. No Swarm, definir `OTEL_APPEND_IP_SUFFIX=False` no `.env` do servidor (seção 22).
-22. Ajustar `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS` e CORS conforme domínio real.
+22. Ajustar `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS` e CORS conforme domínio real. **Sempre incluir `localhost,127.0.0.1`** no início de `ALLOWED_HOSTS` para healthchecks Docker/HAProxy internos; evitar typo `ALLOWED_HOSTS=ALLOWED_HOSTS=...`.
 23. Validar que o projeto inicia sem depender de arquivos locais não versionados.
 
 ---
