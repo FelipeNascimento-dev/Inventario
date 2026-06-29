@@ -282,6 +282,8 @@ Build da imagem Docker
         ↓
 Push da imagem para GHCR ou Registry privado
         ↓
+docker pull (manager) + verificação do conteúdo da imagem
+        ↓
 Migrations (container one-shot)
         ↓
 docker stack deploy no Swarm
@@ -493,6 +495,10 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Invalida cache do BuildKit no runner self-hosted a cada commit (evita COPY . . stale).
+ARG CACHE_BUST
+RUN test -n "${CACHE_BUST}"
+
 COPY . .
 
 # APP_PORT: definir após perguntar ao usuário (seção 5.2). Inventario GTN usa 8000.
@@ -510,6 +516,7 @@ Atenção:
 - Garantir que `gunicorn` esteja no `requirements.txt`.
 - Garantir que `requirements.txt` esteja em **UTF-8**; encoding UTF-16 quebra o `pip install` no build da imagem.
 - Garantir que `curl` exista no container para o healthcheck.
+- Em runner **self-hosted**, usar `ARG CACHE_BUST` + `build-args: CACHE_BUST=${{ github.sha }}` no workflow — sem isso, o layer `COPY . .` pode reutilizar cache local e **templates/HTML antigos** entram na imagem mesmo com commit novo (seção 17).
 
 ---
 
@@ -844,9 +851,21 @@ jobs:
         with:
           context: .
           push: true
+          build-args: |
+            CACHE_BUST=${{ github.sha }}
           tags: |
             ${{ env.IMAGE }}
             ${{ env.IMAGE_LATEST }}
+
+      - name: Pull image on runner
+        run: |
+          docker pull "${IMAGE}"
+          docker pull "${IMAGE_LATEST}"
+
+      - name: Verify image tag and template layer
+        run: |
+          # Confirma que a imagem no registry contém o código do commit (ex.: trecho de index.html)
+          # Ver implementação em .github/workflows/deploy-swarm.yml
 
       - name: Validate Swarm cluster
         run: |
@@ -872,10 +891,14 @@ jobs:
           set +a
           export IMAGE="${IMAGE}"
 
+          docker pull "${IMAGE}"
+
           docker stack deploy \
             --with-registry-auth \
             -c "${STACK_FILE}" \
             "${STACK_NAME}"
+
+          docker service inspect "${STACK_NAME}_web" --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}'
 
       - name: Wait for replicas
         run: |
@@ -920,7 +943,40 @@ Com `replicas: 3`, `parallelism: 1`, `order: start-first` e healthcheck com `sta
 
 **Referência:** `.github/workflows/deploy-swarm.yml` (Inventario GTN).
 
-# 18. Autenticação no GHCR
+### `docker pull` antes do deploy
+
+Após `build-push`, executar `docker pull` da tag `${GITHUB_SHA}` no manager (runner):
+
+- Confirma que a imagem está no registry antes de `docker run` (migrations) e `stack deploy`.
+- Reduz tasks `Rejected` com `No such image` nos nós do Swarm.
+- Repetir `docker pull` imediatamente antes do `stack deploy` (credenciais GHCR ainda ativas no job).
+
+Os workers puxam a imagem na criação da task via `--with-registry-auth`. O pull no manager **não** substitui auth nos nós — garantir pacote GHCR com permissão de pull (seção 18).
+
+### Alteração em HTML/template não aparece após deploy OK
+
+**Não é cache do Django** (não há `CACHES` de template em produção). Causas frequentes:
+
+| Causa | Como detectar |
+|-------|----------------|
+| Cache de build no runner self-hosted (`COPY . .` stale) | Log do build muito rápido; `Verify image tag` no Actions mostra HTML antigo |
+| Imagem errada nas réplicas | `docker service ps inventario_gtn_web --filter desired-state=running --format '{{.Image}}'` ≠ commit esperado |
+| Browser | Aba anônima / hard refresh |
+| Arquivo em `static/` (excluído do `.dockerignore` na raiz) | Mudança em CSS não entra no `collectstatic` do build |
+
+**Diagnóstico no servidor:**
+
+```bash
+docker service ps inventario_gtn_web --filter "desired-state=running" --format '{{.Node}} {{.Image}}'
+docker exec $(docker ps -q --filter "name=inventario_gtn_web" | head -1) \
+  head -20 /app/inventario/templates/inventario/index.html
+```
+
+Se o `cat`/`head` no container mostrar HTML antigo, o problema é **build/imagem**, não HAProxy nem browser.
+
+**Prevenção:** `ARG CACHE_BUST` no `Dockerfile` + `build-args: CACHE_BUST=${{ github.sha }}` no workflow (Inventario GTN).
+
+---
 
 ## Abordagem preferida: `GITHUB_TOKEN`
 
@@ -1126,6 +1182,8 @@ Ao adaptar o projeto, o Cursor deve:
 23. Validar que o projeto inicia sem depender de arquivos locais não versionados.
 24. No workflow de deploy, incluir passo **Wait for replicas** com timeout **≥ 600s** para stacks com 3 réplicas e rolling `start-first` (seção 17).
 25. No HAProxy, **não remover prefixo de path** ao encaminhar para Django montado em subpath (ex.: `/inventario/`); alinhar `LOGIN_URL` com o prefixo real (seção 20).
+26. Após `build-push`, executar **`docker pull`** da tag do commit antes de migrations e `stack deploy` (seção 17).
+27. Em runner self-hosted, usar **`CACHE_BUST=${{ github.sha }}`** no build para não reutilizar layer `COPY . .` com código antigo (seção 12 e 17).
 
 ---
 

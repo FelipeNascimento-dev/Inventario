@@ -269,7 +269,7 @@ docker exec $(docker ps -q --filter "name=inventario_gtn_web" | head -1) curl -f
 
 - `.env.example` e esta documentação incluem `localhost,127.0.0.1`.
 - `deploy/stack.yml` usa healthcheck com `-H 'Host: www.centralretencao.com.br'` e `127.0.0.1` (resiliente mesmo se alguém esquecer localhost no `.env`).
-- Workflow `deploy-swarm.yml` valida `APP_PORT`, corrige typo `ALLOWED_HOSTS=ALLOWED_HOSTS=`, executa migrations e aguarda `3/3` réplicas estáveis (timeout **600s**, 2 checagens consecutivas OK) antes de concluir o job.
+- Workflow `deploy-swarm.yml` valida `APP_PORT`, corrige typo `ALLOWED_HOSTS=ALLOWED_HOSTS=`, executa migrations, faz **`docker pull`** da imagem do commit, usa **`CACHE_BUST`** no build (evita HTML antigo por cache do runner) e aguarda `3/3` réplicas estáveis (timeout **600s**) antes de concluir o job.
 
 ### Actions falhou em `Wait for replicas` mas app está no ar
 
@@ -279,6 +279,18 @@ O `docker stack deploy` já aplica a stack antes do wait. Se o job falhar por ti
 docker service ls | grep inventario_gtn    # esperado: 3/3
 docker stack ps inventario_gtn
 ```
+
+### Deploy OK mas HTML/template não mudou
+
+Não é cache do Django. Verificar se a **imagem nas réplicas** contém o commit novo:
+
+```bash
+docker service ps inventario_gtn_web --filter "desired-state=running" --format '{{.Image}}'
+docker exec $(docker ps -q --filter "name=inventario_gtn_web" | head -1) \
+  head -20 /app/inventario/templates/inventario/index.html
+```
+
+Se o arquivo no container estiver antigo: cache de build no runner self-hosted (`COPY . .` sem `CACHE_BUST`) ou pull falho nos nós (`Rejected` / `No such image`). O workflow atual faz `docker pull` + `CACHE_BUST=${{ github.sha }}` — ver seção 17 em `docs/contexto_infra_swarm_cursor.md`.
 
 ---
 

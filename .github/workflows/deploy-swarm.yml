@@ -48,9 +48,24 @@ jobs:
         with:
           context: .
           push: true
+          build-args: |
+            CACHE_BUST=${{ github.sha }}
           tags: |
             ${{ env.IMAGE }}
             ${{ env.IMAGE_LATEST }}
+
+      - name: Pull image on runner
+        run: |
+          echo "Garantindo imagem no registry e cache local do manager antes do deploy..."
+          docker pull "${IMAGE}"
+          docker pull "${IMAGE_LATEST}"
+
+      - name: Verify image tag and template layer
+        run: |
+          echo "Imagem do deploy: ${IMAGE}"
+          docker image inspect "${IMAGE}" --format 'Id={{.Id}} Created={{.Created}}'
+          docker run --rm "${IMAGE}" \
+            python -c "from pathlib import Path; p=Path('/app/inventario/templates/inventario/index.html'); print('index.html', p.stat().st_size, 'bytes'); print(p.read_text(encoding='utf-8')[:200])"
 
       - name: Validate Swarm cluster
         run: |
@@ -99,10 +114,16 @@ jobs:
           set +a
           export IMAGE="${IMAGE}"
 
+          # Re-pull antes do stack deploy: credenciais do login GHCR ainda ativas no job.
+          docker pull "${IMAGE}"
+
           docker stack deploy \
             --with-registry-auth \
             -c "${STACK_FILE}" \
             "${STACK_NAME}"
+
+          echo "Imagem declarada no serviço:"
+          docker service inspect "${STACK_NAME}_web" --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}'
 
       - name: Wait for replicas
         run: |

@@ -11,6 +11,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Invalida cache local do BuildKit no runner self-hosted a cada commit (templates/static no COPY).
+ARG CACHE_BUST
+RUN test -n "${CACHE_BUST}"
+
 COPY . .
 
 ENV DJANGO_SETTINGS_MODULE=setup.settings
