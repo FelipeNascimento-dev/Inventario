@@ -66,11 +66,13 @@ Usar este padrão nas stacks:
 
 ```yaml
 ports:
-  - target: 8000
-    published: 8000
+  - target: ${APP_PORT}
+    published: ${APP_PORT}
     protocol: tcp
     mode: host
 ```
+
+`${APP_PORT}` é substituído no `docker stack deploy` a partir do `.env` do servidor. Ver seção 5.2 — **perguntar a porta** antes de definir.
 
 Motivo:
 
@@ -132,6 +134,74 @@ Depois que `python-app-03` entrar no Swarm, alterar para:
 
 ```yaml
 replicas: 3
+```
+
+---
+
+## 5.1 Nomenclatura fixa e rolling update
+
+Cada aplicação deve usar nomes **estáveis** entre deploys. O Swarm substitui tasks no rolling update (o ID da task muda), mas o serviço e o hostname por nó permanecem previsíveis.
+
+| Elemento | Exemplo Inventario GTN | Regra geral |
+|----------|------------------------|-------------|
+| `STACK_NAME` | `inventario_gtn` | Definir uma vez no workflow; **nunca** mudar entre deploys |
+| Serviço Swarm | `inventario_gtn_web` | `{STACK_NAME}_{nome_do_servico}` |
+| Hostname do container | `inventario-gtn-{{.Node.Hostname}}` | Template Swarm; previsível por nó |
+
+Incluir no `deploy/stack.yml`:
+
+```yaml
+hostname: "minha-app-{{.Node.Hostname}}"
+```
+
+Substituir `minha-app` pelo identificador curto da aplicação (ex.: `inventario-gtn`).
+
+### Comportamento esperado
+
+- `docker stack deploy` com o **mesmo** `STACK_NAME` **atualiza** o serviço existente (não cria stack paralela).
+- O ID da task muda no rolling update — isso **não é bug**; o hostname template permanece estável por nó (`inventario-gtn-python-app-01`, etc.).
+- O Portainer pode mostrar uma task nova e outra `Shutdown` durante o update — é o rolling update funcionando.
+
+### Proibido
+
+- Criar stack nova no Portainer a cada deploy.
+- Mudar `STACK_NAME` entre deploys.
+- Usar `docker run` para serviços de produção no cluster.
+
+### Diagnóstico
+
+```bash
+docker stack ls                    # deve listar UMA entrada por aplicação
+docker service ps inventario_gtn_web --no-trunc
+```
+
+Tasks `Running` substituindo `Shutdown` no mesmo serviço = deploy correto. Duas stacks com nomes diferentes = erro de configuração.
+
+---
+
+## 5.2 Porta da aplicação (obrigatório perguntar)
+
+O cluster hospeda **várias aplicações** no mesmo modo `host`. **Não assumir porta padrão** (`8000` para Django, `8010` para FastAPI, etc.).
+
+### Regra para o Cursor
+
+**Antes** de gerar ou alterar `Dockerfile`, `deploy/stack.yml`, healthcheck ou backend HAProxy, **perguntar ao usuário qual porta host será usada**.
+
+Registrar a porta escolhida em:
+
+- variável `APP_PORT` no `.env` do servidor (`/opt/envs/minha-app.env`) e em `.env.example`;
+- `deploy/stack.yml` (`command`, `ports`, `healthcheck`);
+- `Dockerfile` (`EXPOSE` e bind do Gunicorn);
+- configuração HAProxy do backend.
+
+Manter controle das portas já em uso no cluster para evitar conflito em `mode: host`.
+
+**Referência:** Inventario GTN usa `APP_PORT=8000` (escolha explícita do time, não padrão genérico).
+
+Exemplo de variável no `.env`:
+
+```env
+APP_PORT=8000
 ```
 
 ---
@@ -323,20 +393,24 @@ Exemplo de `.env.example` para Django:
 DJANGO_SETTINGS_MODULE=config.settings.production
 DEBUG=False
 SECRET_KEY=
-DATABASE_URL=
+APP_PORT=
 ALLOWED_HOSTS=
 CSRF_TRUSTED_ORIGINS=
+DATABASE_URL=
 REDIS_URL=
+OTEL_APPEND_IP_SUFFIX=False
 ```
 
 Exemplo de `.env.example` para FastAPI:
 
 ```env
 APP_ENV=production
+APP_PORT=
 DATABASE_URL=
 REDIS_URL=
 SECRET_KEY=
 ALLOWED_ORIGINS=
+OTEL_APPEND_IP_SUFFIX=False
 ```
 
 ---
@@ -415,14 +489,18 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-EXPOSE 8000
+# APP_PORT: definir após perguntar ao usuário (seção 5.2). Inventario GTN usa 8000.
+ARG APP_PORT=8000
+EXPOSE ${APP_PORT}
 
-CMD ["gunicorn", "setup.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4", "--threads", "2", "--timeout", "60", "--max-requests", "1000", "--max-requests-jitter", "100"]
+CMD ["sh", "-c", "gunicorn setup.wsgi:application --bind 0.0.0.0:${APP_PORT} --workers 4 --threads 2 --timeout 60 --max-requests 1000 --max-requests-jitter 100"]
 ```
 
 Atenção:
 
 - Trocar `setup.wsgi:application` pelo módulo WSGI correto do projeto (neste repositório: `setup.wsgi`).
+- **Perguntar `APP_PORT`** antes de criar o Dockerfile (seção 5.2).
+- Em produção no Swarm, a porta efetiva vem do `command` em `deploy/stack.yml` (sobrescreve o `CMD`).
 - Garantir que `gunicorn` esteja no `requirements.txt`.
 - Garantir que `requirements.txt` esteja em **UTF-8**; encoding UTF-16 quebra o `pip install` no build da imagem.
 - Garantir que `curl` exista no container para o healthcheck.
@@ -453,14 +531,17 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-EXPOSE 8010
+# APP_PORT: definir após perguntar ao usuário (seção 5.2).
+ARG APP_PORT=8010
+EXPOSE ${APP_PORT}
 
-CMD ["gunicorn", "main:app", "-k", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8010", "--workers", "4", "--timeout", "60"]
+CMD ["sh", "-c", "gunicorn main:app -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:${APP_PORT} --workers 4 --timeout 60"]
 ```
 
 Atenção:
 
 - Trocar `main:app` pelo módulo correto da aplicação.
+- **Perguntar `APP_PORT`** antes de criar o Dockerfile (seção 5.2).
 - Garantir que `gunicorn` e `uvicorn` estejam no `requirements.txt`.
 - Garantir que `curl` exista no container para o healthcheck.
 
@@ -521,9 +602,11 @@ services:
   web:
     image: ${IMAGE}
 
+    hostname: "inventario-gtn-{{.Node.Hostname}}"
+
     command: >
       gunicorn setup.wsgi:application
-      --bind 0.0.0.0:8000
+      --bind 0.0.0.0:${APP_PORT}
       --workers 4
       --threads 2
       --timeout 60
@@ -531,8 +614,8 @@ services:
       --max-requests-jitter 100
 
     ports:
-      - target: 8000
-        published: 8000
+      - target: ${APP_PORT}
+        published: ${APP_PORT}
         protocol: tcp
         mode: host
 
@@ -540,6 +623,7 @@ services:
       - app_network
 
     environment:
+      APP_PORT: ${APP_PORT}
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE}
       DEBUG: ${DEBUG}
       SECRET_KEY: ${SECRET_KEY}
@@ -554,6 +638,7 @@ services:
       TYPE_NAME: ${TYPE_NAME}
       ENABLE_TEST_ROUTES: ${ENABLE_TEST_ROUTES}
       OTEL_ENABLED: ${OTEL_ENABLED}
+      OTEL_APPEND_IP_SUFFIX: ${OTEL_APPEND_IP_SUFFIX}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
       LOKI_URL: ${LOKI_URL}
       LOG_LEVEL: ${LOG_LEVEL}
@@ -589,7 +674,7 @@ services:
           memory: 2048M
 
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      test: ["CMD-SHELL", "curl -f http://localhost:$${APP_PORT}/health/"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -600,7 +685,7 @@ networks:
     external: true
 ```
 
-Em outros projetos Django, trocar `setup.wsgi:application` pelo módulo WSGI correto (ex.: `config.wsgi:application`). Manter o `command` com Gunicorn na stack.
+Em outros projetos Django, trocar `setup.wsgi:application` pelo módulo WSGI correto (ex.: `config.wsgi:application`). Ajustar `hostname` e `APP_PORT` conforme a aplicação. Inventario GTN usa `APP_PORT=8000`.
 
 ---
 
@@ -621,16 +706,18 @@ services:
   web:
     image: ${IMAGE}
 
+    hostname: "minha-api-{{.Node.Hostname}}"
+
     command: >
       gunicorn main:app
       -k uvicorn.workers.UvicornWorker
-      --bind 0.0.0.0:8010
+      --bind 0.0.0.0:${APP_PORT}
       --workers 4
       --timeout 60
 
     ports:
-      - target: 8010
-        published: 8010
+      - target: ${APP_PORT}
+        published: ${APP_PORT}
         protocol: tcp
         mode: host
 
@@ -638,11 +725,13 @@ services:
       - app_network
 
     environment:
+      APP_PORT: ${APP_PORT}
       APP_ENV: ${APP_ENV}
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
       SECRET_KEY: ${SECRET_KEY}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      OTEL_APPEND_IP_SUFFIX: ${OTEL_APPEND_IP_SUFFIX}
 
     deploy:
       mode: replicated
@@ -675,7 +764,7 @@ services:
           memory: 2048M
 
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
+      test: ["CMD-SHELL", "curl -f http://localhost:$${APP_PORT}/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -685,7 +774,7 @@ networks:
     external: true
 ```
 
-Ajustar `main:app` conforme o projeto.
+Ajustar `main:app`, `hostname` e `APP_PORT` conforme o projeto. **Perguntar a porta** antes de definir (seção 5.2).
 
 ---
 
@@ -899,15 +988,17 @@ docker stack rm minha_app
 
 ## Django
 
+Substituir `${APP_PORT}` pela porta escolhida para a aplicação (seção 5.2). Inventario GTN usa `8000`.
+
 ```haproxy
 backend minha_app_django
     balance roundrobin
     option httpchk GET /health/
     http-check expect status 200-399
 
-    server python-app-01 192.168.0.223:8000 check
-    server python-app-02 192.168.0.224:8000 check
-    server python-app-03 192.168.0.225:8000 check
+    server python-app-01 192.168.0.223:${APP_PORT} check
+    server python-app-02 192.168.0.224:${APP_PORT} check
+    server python-app-03 192.168.0.225:${APP_PORT} check
 ```
 
 ## FastAPI
@@ -918,9 +1009,9 @@ backend minha_app_fastapi
     option httpchk GET /health
     http-check expect status 200-399
 
-    server python-app-01 192.168.0.223:8010 check
-    server python-app-02 192.168.0.224:8010 check
-    server python-app-03 192.168.0.225:8010 check
+    server python-app-01 192.168.0.223:${APP_PORT} check
+    server python-app-02 192.168.0.224:${APP_PORT} check
+    server python-app-03 192.168.0.225:${APP_PORT} check
 ```
 
 ---
@@ -942,15 +1033,16 @@ Ao adaptar o projeto, o Cursor deve:
 11. Não salvar uploads dentro do container.
 12. Não usar banco de dados dentro do container da aplicação.
 13. Não colocar Redis dentro do container da aplicação.
-14. Ajustar portas conforme a aplicação:
-    - Django: 8000
-    - FastAPI: 8010 ou porta definida para a API
-15. Usar `mode: host` nas portas publicadas.
-16. Usar `max_replicas_per_node: 1`.
-17. Usar `app_network` como rede externa.
-18. Garantir que logs saiam em stdout/stderr para Docker/Portainer/Loki.
-19. Ajustar `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS` e CORS conforme domínio real.
-20. Validar que o projeto inicia sem depender de arquivos locais não versionados.
+14. **Perguntar `APP_PORT` ao usuário** antes de criar `Dockerfile`, `deploy/stack.yml`, healthcheck ou backend HAProxy — não assumir porta padrão (seção 5.2).
+15. Usar `STACK_NAME` fixo no workflow e `hostname` com template `{{.Node.Hostname}}` na stack (seção 5.1).
+16. Nunca criar stack duplicada no Portainer; sempre `docker stack deploy` com o mesmo `STACK_NAME`.
+17. Usar `mode: host` nas portas publicadas.
+18. Usar `max_replicas_per_node: 1`.
+19. Usar `app_network` como rede externa.
+20. Garantir que logs saiam em stdout/stderr para Docker/Portainer/Loki.
+21. No Swarm, definir `OTEL_APPEND_IP_SUFFIX=False` no `.env` do servidor (seção 22).
+22. Ajustar `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS` e CORS conforme domínio real.
+23. Validar que o projeto inicia sem depender de arquivos locais não versionados.
 
 ---
 
@@ -976,6 +1068,45 @@ As aplicações devem preferencialmente:
 - manter endpoint `/health` ou `/health/`;
 - incluir OpenTelemetry quando o projeto já tiver padrão configurado;
 - não gravar logs apenas em arquivo local dentro do container.
+
+## Padrão no Docker Swarm
+
+No `.env` do servidor (`/opt/envs/minha-app.env`), incluir:
+
+```env
+OTEL_ENABLED=True
+OTEL_APPEND_ENV=True
+OTEL_APPEND_IP_SUFFIX=False
+OTEL_EXPORTER_OTLP_ENDPOINT=http://192.168.0.213:4318
+LOKI_URL=http://192.168.0.213:3100/loki/api/v1/push
+LOG_LEVEL=INFO
+```
+
+Repassar `OTEL_APPEND_IP_SUFFIX` no `environment` de `deploy/stack.yml`.
+
+### Nome da aplicação em Loki/Tempo
+
+Com `OTEL_APPEND_IP_SUFFIX=False`, o nome enviado fica **sem octeto de IP**:
+
+```text
+<base>-<ambiente>
+```
+
+Exemplo Inventario GTN em produção:
+
+```text
+Inventario GTN-producao
+```
+
+**Não** usar sufixo de IP no nome do app (`Inventario GTN-producao-223` é indesejado no Swarm). Várias réplicas compartilham o mesmo nome de serviço nos logs; a tag `host` do Loki (IP ou hostname do nó) distingue a instância quando necessário.
+
+### Consulta no Loki
+
+```logql
+{app="Inventario GTN-producao"}
+```
+
+Em dev local, `OTEL_APPEND_IP_SUFFIX=True` pode permanecer para distinguir máquinas de desenvolvimento.
 
 ---
 

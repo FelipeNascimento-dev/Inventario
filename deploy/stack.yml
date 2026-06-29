@@ -4,9 +4,11 @@ services:
   web:
     image: ${IMAGE}
 
+    hostname: "inventario-gtn-{{.Node.Hostname}}"
+
     command: >
       gunicorn setup.wsgi:application
-      --bind 0.0.0.0:8000
+      --bind 0.0.0.0:${APP_PORT}
       --workers 4
       --threads 2
       --timeout 60
@@ -14,8 +16,8 @@ services:
       --max-requests-jitter 100
 
     ports:
-      - target: 8000
-        published: 8000
+      - target: ${APP_PORT}
+        published: ${APP_PORT}
         protocol: tcp
         mode: host
 
@@ -23,6 +25,7 @@ services:
       - app_network
 
     environment:
+      APP_PORT: ${APP_PORT}
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE}
       DEBUG: ${DEBUG}
       SECRET_KEY: ${SECRET_KEY}
@@ -37,6 +40,7 @@ services:
       TYPE_NAME: ${TYPE_NAME}
       ENABLE_TEST_ROUTES: ${ENABLE_TEST_ROUTES}
       OTEL_ENABLED: ${OTEL_ENABLED}
+      OTEL_APPEND_IP_SUFFIX: ${OTEL_APPEND_IP_SUFFIX}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
       LOKI_URL: ${LOKI_URL}
       LOG_LEVEL: ${LOG_LEVEL}
@@ -72,7 +76,7 @@ services:
           memory: 2048M
 
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      test: ["CMD-SHELL", "curl -f http://localhost:$${APP_PORT}/health/"]
       interval: 30s
       timeout: 10s
       retries: 3

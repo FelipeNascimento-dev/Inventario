@@ -71,13 +71,18 @@ INVENTARIO_API_BASE_URL=http://192.168.0.216/inventario-api
 TYPE_NAME=producao
 ENABLE_TEST_ROUTES=False
 
+APP_PORT=8000
+
 OTEL_ENABLED=True
+OTEL_APPEND_IP_SUFFIX=False
 OTEL_EXPORTER_OTLP_ENDPOINT=http://192.168.0.213:4318
 LOKI_URL=http://192.168.0.213:3100/loki/api/v1/push
 LOG_LEVEL=INFO
 ```
 
 **Nota:** `IMAGE` **não** entra neste arquivo — o workflow exporta `IMAGE=ghcr.io/c-trends-bpo/inventario:<sha>` no passo de deploy.
+
+`APP_PORT=8000` é a porta escolhida para o Inventario GTN neste cluster. Novas aplicações devem usar porta diferente — ver seção 5.2 em `docs/contexto_infra_swarm_cursor.md`.
 
 ### Gerar `SECRET_KEY` (exemplo)
 
@@ -161,7 +166,9 @@ Agent Swarm em `192.168.0.223:9001` — apenas visualização; deploy via GitHub
 | Rede | `docker network inspect app_network` |
 | Primeiro deploy | push em `main` ou re-run do workflow |
 | Réplicas | `docker stack ps inventario_gtn` — 3 running |
-| Health por nó | `curl -f http://192.168.0.223:8000/health/` (e .224, .225) |
+| Health por nó | `curl -f http://192.168.0.223:8000/health/` (e .224, .225) — porta `APP_PORT` |
+| Hostname estável | `docker service ps inventario_gtn_web` — `inventario-gtn-python-app-0X` por nó |
+| Logs Loki | `{app="Inventario GTN-producao"}` — sem sufixo de IP (`OTEL_APPEND_IP_SUFFIX=False`) |
 | HAProxy | backends green no painel/stats do HAProxy |
 | Rotas de teste off | `ENABLE_TEST_ROUTES=False` → `/inventario/teste-erro-loki/` retorna 404 |
 
