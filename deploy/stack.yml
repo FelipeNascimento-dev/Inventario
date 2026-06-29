@@ -4,6 +4,15 @@ services:
   web:
     image: ${IMAGE}
 
+    command: >
+      gunicorn setup.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 4
+      --threads 2
+      --timeout 60
+      --max-requests 1000
+      --max-requests-jitter 100
+
     ports:
       - target: 8000
         published: 8000
