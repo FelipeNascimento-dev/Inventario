@@ -282,7 +282,11 @@ Build da imagem Docker
         ↓
 Push da imagem para GHCR ou Registry privado
         ↓
+Migrations (container one-shot)
+        ↓
 docker stack deploy no Swarm
+        ↓
+Wait for replicas (3/3 estável, timeout 600s)
         ↓
 Portainer exibe o estado da stack
         ↓
@@ -844,26 +848,48 @@ jobs:
             ${{ env.IMAGE }}
             ${{ env.IMAGE_LATEST }}
 
-      - name: Validate Swarm node
+      - name: Validate Swarm cluster
         run: |
           docker node ls
           docker network ls | grep app_network
+
+      - name: Run database migrations
+        run: |
+          docker run --rm \
+            --env-file "${ENV_FILE}" \
+            "${IMAGE}" \
+            python manage.py migrate --noinput
+
+      - name: Validate and fix environment file
+        run: |
+          # Valida APP_PORT e ALLOWED_HOSTS; corrige typo ALLOWED_HOSTS=ALLOWED_HOSTS=...
+          # Ver implementação em .github/workflows/deploy-swarm.yml
 
       - name: Deploy stack
         run: |
           set -a
           source "${ENV_FILE}"
           set +a
+          export IMAGE="${IMAGE}"
 
           docker stack deploy \
             --with-registry-auth \
             -c "${STACK_FILE}" \
             "${STACK_NAME}"
 
-      - name: Check services
+      - name: Wait for replicas
         run: |
-          docker stack services "${STACK_NAME}"
-          docker stack ps "${STACK_NAME}" --no-trunc
+          # Aguarda 3/3 réplicas estáveis antes de concluir o job.
+          # Parâmetros recomendados (Inventario GTN):
+          #   TIMEOUT=600        — rolling update com healthcheck start_period 40s pode passar de 5 min
+          #   INTERVAL=15        — intervalo entre checagens
+          #   STABLE_REQUIRED=2  — exige 2 leituras consecutivas OK (evita falso positivo no meio do update)
+          #
+          # Critérios de sucesso:
+          #   docker service ls → inventario_gtn_web 3/3
+          #   docker service ps → 3 tasks com CurrentState "Running"
+          #
+          # Ver implementação completa em .github/workflows/deploy-swarm.yml
 ```
 
 Ajustar:
@@ -875,7 +901,24 @@ ENV_FILE: /opt/envs/minha-app.env
 
 para o nome real da aplicação.
 
----
+### Passo `Wait for replicas` — parâmetros e armadilhas
+
+Com `replicas: 3`, `parallelism: 1`, `order: start-first` e healthcheck com `start_period: 40s`, o rolling update pode levar **mais de 5 minutos** até `3/3` estável. Timeout de **300s é curto** — usar **600s** (10 min).
+
+| Parâmetro | Valor recomendado | Motivo |
+|-----------|-------------------|--------|
+| `TIMEOUT` | `600` | 3 réplicas × (start_period + checks) + delays entre updates |
+| `INTERVAL` | `15` | Polling sem sobrecarregar o manager |
+| `STABLE_REQUIRED` | `2` | Duas leituras consecutivas `3/3` evitam sucesso prematuro no meio do rolling |
+
+**Contagem confiável:** não usar só `docker service ls --filter name=... | head -1` (filtro por substring e `head -1` são frágeis). Preferir:
+
+- `docker service ls --format '{{.Name}} {{.Replicas}}' | awk '$1 == svc'`
+- `docker service ps` contando tasks com `CurrentState` = `Running`
+
+**Falso negativo no Actions:** o job pode falhar em `Wait for replicas` mesmo com a aplicação já respondendo via HAProxy — o `docker stack deploy` já aplicou a stack; validar com `docker service ls | grep <stack>` no servidor. Re-run do workflow ou aguardar estabilização costuma resolver.
+
+**Referência:** `.github/workflows/deploy-swarm.yml` (Inventario GTN).
 
 # 18. Autenticação no GHCR
 
@@ -984,9 +1027,45 @@ docker service update --force minha_app_web
 docker stack rm minha_app
 ```
 
+## Validar réplicas após deploy (ou Actions com wait falho)
+
+```bash
+docker service ls --format 'table {{.Name}}\t{{.Replicas}}' | grep inventario_gtn
+docker service ps inventario_gtn_web --no-trunc
+docker service logs inventario_gtn_web --tail 50
+```
+
+Se `3/3` mas o workflow falhou em `Wait for replicas`, o deploy já foi aplicado — ver seção 17 (falso negativo por timeout ou polling).
+
 ---
 
 # 20. HAProxy - exemplos
+
+## Regra crítica — não remover prefixo de path
+
+O HAProxy deve encaminhar o **path completo** recebido do cliente para o backend. **Não** usar `http-request set-path`, `reqrep` ou ACL que remova prefixos como `/inventario`.
+
+Exemplo do problema (Inventario GTN):
+
+```text
+Cliente  → GET /inventario/login/
+HAProxy  → GET /login/          ← strip incorreto
+Django   → 404 (rota só existe em /inventario/login/)
+```
+
+O 404 exibido é o **template padrão do Django** (`Server: gunicorn`), não página de erro do HAProxy.
+
+**Diagnóstico rápido:**
+
+```bash
+# Deve retornar 200 — container OK
+curl -I http://192.168.0.223:8000/inventario/login/ -H "Host: www.centralretencao.com.br"
+
+# Se falhar aqui mas OK acima → problema no HAProxy (path ou backend errado)
+curl -I http://<haproxy>:<porta>/inventario/login/ -H "Host: www.centralretencao.com.br"
+```
+
+No Django, `LOGIN_URL` / `LOGOUT_REDIRECT_URL` devem usar o mesmo prefixo das URLs (`/inventario/login/`, não `/login/` na raiz).
 
 ## Django
 
@@ -1045,6 +1124,8 @@ Ao adaptar o projeto, o Cursor deve:
 21. No Swarm, definir `OTEL_APPEND_IP_SUFFIX=False` no `.env` do servidor (seção 22).
 22. Ajustar `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS` e CORS conforme domínio real. **Sempre incluir `localhost,127.0.0.1`** no início de `ALLOWED_HOSTS` para healthchecks Docker/HAProxy internos; evitar typo `ALLOWED_HOSTS=ALLOWED_HOSTS=...`.
 23. Validar que o projeto inicia sem depender de arquivos locais não versionados.
+24. No workflow de deploy, incluir passo **Wait for replicas** com timeout **≥ 600s** para stacks com 3 réplicas e rolling `start-first` (seção 17).
+25. No HAProxy, **não remover prefixo de path** ao encaminhar para Django montado em subpath (ex.: `/inventario/`); alinhar `LOGIN_URL` com o prefixo real (seção 20).
 
 ---
 

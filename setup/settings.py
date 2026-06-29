@@ -166,9 +166,9 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Configurações de autenticação Django
-LOGIN_URL = '/login/'
+LOGIN_URL = '/inventario/login/'
 LOGIN_REDIRECT_URL = '/inventario/'
-LOGOUT_REDIRECT_URL = '/login/'
+LOGOUT_REDIRECT_URL = '/inventario/login/'
 
 # URL base da API FastAPI de inventário (sobrescrever em local_settings.py)
 INVENTARIO_API_BASE_URL = _env('INVENTARIO_API_BASE_URL', 'http://127.0.0.1/inventario-api')

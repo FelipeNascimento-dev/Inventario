@@ -112,27 +112,50 @@ jobs:
 
           SERVICE="${STACK_NAME}_web"
           DESIRED=3
-          TIMEOUT=300
+          TIMEOUT=600
+          INTERVAL=15
+          STABLE_REQUIRED=2
           ELAPSED=0
+          STABLE_CHECKS=0
 
-          echo "Aguardando ${DESIRED}/${DESIRED} réplicas running em ${SERVICE} (timeout ${TIMEOUT}s)..."
+          count_running_tasks() {
+            docker service ps "${SERVICE}" \
+              --filter "desired-state=running" \
+              --format '{{.CurrentState}}' 2>/dev/null \
+              | awk '$1 == "Running" { count++ } END { print count + 0 }'
+          }
+
+          get_replicas_line() {
+            docker service ls --format '{{.Name}} {{.Replicas}}' \
+              | awk -v svc="${SERVICE}" '$1 == svc { print $2; exit }'
+          }
+
+          echo "Aguardando ${DESIRED}/${DESIRED} réplicas estáveis em ${SERVICE} (timeout ${TIMEOUT}s)..."
 
           while [[ "${ELAPSED}" -lt "${TIMEOUT}" ]]; do
-            RUNNING=$(docker service ls --filter "name=${SERVICE}" --format '{{.Replicas}}' | head -1)
-            echo "  ${ELAPSED}s — réplicas: ${RUNNING:-desconhecido}"
+            REPLICAS_LINE="$(get_replicas_line)"
+            RUNNING_COUNT="$(count_running_tasks)"
+            echo "  ${ELAPSED}s — tasks Running: ${RUNNING_COUNT}/${DESIRED} | service ls: ${REPLICAS_LINE:-ausente}"
 
-            if [[ "${RUNNING}" == "${DESIRED}/${DESIRED}" ]]; then
-              echo "Serviço estável: ${RUNNING}"
-              docker stack services "${STACK_NAME}"
-              docker stack ps "${STACK_NAME}" --no-trunc
-              exit 0
+            if [[ "${RUNNING_COUNT}" -eq "${DESIRED}" ]] \
+              && [[ "${REPLICAS_LINE}" =~ ^${DESIRED}/${DESIRED} ]]; then
+              STABLE_CHECKS=$((STABLE_CHECKS + 1))
+              if [[ "${STABLE_CHECKS}" -ge "${STABLE_REQUIRED}" ]]; then
+                echo "Serviço estável: ${REPLICAS_LINE} (${STABLE_REQUIRED} checagens consecutivas OK)"
+                docker stack services "${STACK_NAME}"
+                docker stack ps "${STACK_NAME}" --no-trunc
+                exit 0
+              fi
+            else
+              STABLE_CHECKS=0
             fi
 
-            sleep 15
-            ELAPSED=$((ELAPSED + 15))
+            sleep "${INTERVAL}"
+            ELAPSED=$((ELAPSED + INTERVAL))
           done
 
-          echo "Timeout: serviço não atingiu ${DESIRED}/${DESIRED} réplicas running." >&2
+          echo "Timeout: serviço não atingiu ${DESIRED}/${DESIRED} réplicas estáveis." >&2
+          docker stack services "${STACK_NAME}" || true
           docker service ps "${SERVICE}" --no-trunc
           docker service logs "${SERVICE}" --tail 100 2>&1 || true
           exit 1

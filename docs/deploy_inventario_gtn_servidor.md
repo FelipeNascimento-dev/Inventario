@@ -157,6 +157,8 @@ backend inventario_gtn
 
 Vincular o frontend (ACL/host) ao backend `inventario_gtn` conforme o virtual host de produção (ex.: `www.centralretencao.com.br`).
 
+**Importante:** encaminhar o path **completo** (`/inventario/...`, `/health/`). Não remover o prefixo `/inventario` no HAProxy — caso contrário o Django retorna 404 em rotas como `/inventario/login/` (ver seção 20 em `docs/contexto_infra_swarm_cursor.md`).
+
 Recarregar HAProxy após editar a configuração:
 
 ```bash
@@ -267,7 +269,16 @@ docker exec $(docker ps -q --filter "name=inventario_gtn_web" | head -1) curl -f
 
 - `.env.example` e esta documentação incluem `localhost,127.0.0.1`.
 - `deploy/stack.yml` usa healthcheck com `-H 'Host: www.centralretencao.com.br'` e `127.0.0.1` (resiliente mesmo se alguém esquecer localhost no `.env`).
-- Workflow `deploy-swarm.yml` valida `APP_PORT`, corrige typo `ALLOWED_HOSTS=ALLOWED_HOSTS=` e aguarda `3/3` réplicas antes de concluir o job.
+- Workflow `deploy-swarm.yml` valida `APP_PORT`, corrige typo `ALLOWED_HOSTS=ALLOWED_HOSTS=`, executa migrations e aguarda `3/3` réplicas estáveis (timeout **600s**, 2 checagens consecutivas OK) antes de concluir o job.
+
+### Actions falhou em `Wait for replicas` mas app está no ar
+
+O `docker stack deploy` já aplica a stack antes do wait. Se o job falhar por timeout mas `docker service ls` mostrar `3/3` minutos depois, foi falso negativo do polling — re-run do workflow ou ignorar se o cluster já está estável.
+
+```bash
+docker service ls | grep inventario_gtn    # esperado: 3/3
+docker stack ps inventario_gtn
+```
 
 ---
 
