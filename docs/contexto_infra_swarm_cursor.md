@@ -263,6 +263,8 @@ Adaptar o projeto para conter:
 projeto/
 ├── Dockerfile
 ├── requirements.txt
+├── .editorconfig
+├── .gitattributes
 ├── .dockerignore
 ├── .env.example
 ├── deploy/
@@ -271,6 +273,8 @@ projeto/
     └── workflows/
         └── deploy-swarm.yml
 ```
+
+**Encoding de `requirements.txt`:** o arquivo deve estar em **UTF-8** (nunca UTF-16). Pip, Docker e Dependabot não interpretam UTF-16; sintoma típico: `Invalid requirement` na linha 1 ou Dependabot `dependency_file_not_evaluatable`. Verificação rápida: `python -c "print(open('requirements.txt','rb').read(4))"` — não deve haver `\x00` entre letras (ex.: `b'anyi'` e não `b'a\x00n\x00'`). Usar `.editorconfig` e `.gitattributes` para forçar UTF-8 e LF.
 
 Para Django, também garantir:
 
@@ -420,6 +424,7 @@ Atenção:
 
 - Trocar `config.wsgi:application` pelo módulo correto do projeto.
 - Garantir que `gunicorn` esteja no `requirements.txt`.
+- Garantir que `requirements.txt` esteja em **UTF-8**; encoding UTF-16 quebra o `pip install` no build da imagem.
 - Garantir que `curl` exista no container para o healthcheck.
 
 ---
@@ -917,7 +922,7 @@ Ao adaptar o projeto, o Cursor deve:
 4. Criar `.env.example`, sem valores reais.
 5. Criar `deploy/stack.yml`.
 6. Criar `.github/workflows/deploy-swarm.yml`.
-7. Adicionar dependências necessárias no `requirements.txt`.
+7. Adicionar dependências necessárias no `requirements.txt` (sempre **UTF-8**, fim de linha LF; evitar salvar como UTF-16 no Windows).
 8. Garantir que exista endpoint `/health/` para Django ou `/health` para FastAPI.
 9. Garantir que Gunicorn esteja configurado corretamente.
 10. Não commitar `.env` real.
