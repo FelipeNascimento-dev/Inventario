@@ -1,6 +1,8 @@
+from django.conf import settings
+from django.urls import path
+
 from .views import UserLoginView
 from .views import RegisterView
-from django.urls import path
 from .views import index, logout_confirm_view, logout_view, criar_lote_view, lote, \
 iniciar_caixa_redirect, bipagem, inserir_serial_ajax, validar_lote_view, validar_serial, finalizar_lote_view, \
 acompanhamento_dash, acompanhamento_api_lotes, acompanhamento_api_resumo, \
@@ -38,3 +40,11 @@ urlpatterns = [
     path('extracao/', download_extracao_csv, name='download_extracao_csv'),
     path('extracao-agendada/<int:pk>/', download_extracao_agendada, name='download_extracao_agendada'),
 ]
+
+if settings.ENABLE_TEST_ROUTES:
+    from .views.observability_test_view import telemetry_test, teste_erro_loki
+
+    urlpatterns += [
+        path('teste-erro-loki/', teste_erro_loki, name='teste_erro_loki'),
+        path('telemetry-test/', telemetry_test, name='telemetry_test'),
+    ]

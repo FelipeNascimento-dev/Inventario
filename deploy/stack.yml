@@ -1,0 +1,74 @@
+version: "3.8"
+
+services:
+  web:
+    image: ${IMAGE}
+
+    ports:
+      - target: 8000
+        published: 8000
+        protocol: tcp
+        mode: host
+
+    networks:
+      - app_network
+
+    environment:
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE}
+      DEBUG: ${DEBUG}
+      SECRET_KEY: ${SECRET_KEY}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      INVENTARIO_API_BASE_URL: ${INVENTARIO_API_BASE_URL}
+      TYPE_NAME: ${TYPE_NAME}
+      ENABLE_TEST_ROUTES: ${ENABLE_TEST_ROUTES}
+      OTEL_ENABLED: ${OTEL_ENABLED}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+      LOKI_URL: ${LOKI_URL}
+      LOG_LEVEL: ${LOG_LEVEL}
+
+    deploy:
+      mode: replicated
+      replicas: 3
+
+      placement:
+        max_replicas_per_node: 1
+
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+
+      rollback_config:
+        parallelism: 1
+        delay: 10s
+        order: stop-first
+
+      resources:
+        reservations:
+          cpus: "0.50"
+          memory: 512M
+        limits:
+          cpus: "2.00"
+          memory: 2048M
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  app_network:
+    external: true

@@ -3,6 +3,8 @@ import logging
 import requests
 from django.conf import settings
 
+from core.logging_config import extract_response_status_code, log_for_status_code
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT = 30
@@ -28,7 +30,14 @@ def _get(path, params=None):
         response.raise_for_status()
         return response.json()
     except requests.RequestException as exc:
-        logger.exception("Falha ao consultar API de inventário: %s", url)
+        status_code = extract_response_status_code(exc)
+        log_for_status_code(
+            logger,
+            status_code,
+            "Falha ao consultar API de inventário status=%s url=%s",
+            status_code,
+            url,
+        )
         raise InventarioApiError(
             "Não foi possível consultar a API de acompanhamento."
         ) from exc

@@ -1,0 +1,244 @@
+---
+description: Observabilidade Django com OpenTelemetry, Grafana Tempo, Loki e logs correlacionados
+globs:
+  - "**/*.py"
+  - "**/settings*.py"
+  - "**/requirements*.txt"
+alwaysApply: true
+---
+
+# Regra Cursor — Django | OpenTelemetry + Tempo + Loki
+
+> **Projetos FastAPI:** usar a rule [`333-cursor_rule_fastapi_opentelemetry_loki (1).mdc`](333-cursor_rule_fastapi_opentelemetry_loki%20(1).mdc).
+
+Sempre responder em português do Brasil.
+
+Esta regra deve ser aplicada em projetos **Django** para implementar observabilidade com:
+
+- OpenTelemetry para traces.
+- Grafana Tempo para armazenamento e consulta de traces.
+- Loki para centralização de logs.
+- Logs correlacionados com `trace_id`, `span_id` e `service.name`.
+- Níveis de log alinhados ao status HTTP: `WARNING` para 4xx, `ERROR` para 5xx e 4xx críticos.
+- Tratamento de exceções não tratadas via `process_exception` no middleware.
+- Configuração controlada por `setup/settings.py` (+ overrides em `local_settings.py`).
+- Código isolado em `core/telemetry.py`, `core/logging_config.py`, `core/middleware.py`.
+
+Antes de alterar qualquer arquivo, analise a estrutura do projeto e apresente um plano curto de implementação.
+
+---
+
+# Infra de observabilidade
+
+O Grafana consulta o Tempo pela porta 3200:
+
+```text
+http://tempo:3200
+```
+
+As aplicações Django devem enviar traces para o Tempo via OTLP HTTP na porta 4318:
+
+```text
+http://192.168.0.213:4318
+```
+
+Endpoint final usado pelo exporter:
+
+```text
+http://192.168.0.213:4318/v1/traces
+```
+
+Logs devem ser enviados para Loki:
+
+```text
+http://192.168.0.213:3100/loki/api/v1/push
+```
+
+Nunca usar a porta `3200` na aplicação para enviar traces.
+
+---
+
+# Configurações obrigatórias em `setup/settings.py`
+
+A fonte de verdade é o Django `settings`. O código de telemetria e logging deve ler de
+`django.conf.settings`, nunca de `os.getenv` diretamente.
+
+```python
+TYPE_NAME = 'homologacao' if DEBUG else 'producao'
+
+OTEL_ENABLED = True
+OTEL_SERVICE_NAME = 'InventarioWeb'
+OTEL_APPEND_ENV = True
+OTEL_APPEND_IP_SUFFIX = True
+OTEL_EXPORTER_OTLP_ENDPOINT = 'http://192.168.0.213:4318'
+OTEL_ENVIRONMENT = TYPE_NAME
+OTEL_HOST_NAME = ''
+
+LOKI_ENABLED = True
+LOKI_URL = 'http://192.168.0.213:3100/loki/api/v1/push'
+LOKI_APP_NAME = 'InventarioWeb'
+LOKI_HOST_NAME = ''
+
+LOG_LEVEL = 'INFO'
+ENABLE_TEST_ROUTES = DEBUG
+
+from core.host_info import get_local_ip, get_ip_suffix
+LOCAL_IP = get_local_ip()
+IP_SUFFIX = get_ip_suffix(LOCAL_IP)
+```
+
+`OTEL_SERVICE_NAME` e `LOKI_APP_NAME` são o nome BASE. As funções em
+`core/settings_helpers.py` anexam ambiente e sufixo do IP, produzindo o MESMO nome no Tempo e no Loki.
+
+`local_settings.py` pode sobrescrever endpoints, `ENABLE_TEST_ROUTES`, `LOG_LEVEL` e `TYPE_NAME`.
+
+---
+
+# Separação de ambiente (TYPE_NAME)
+
+- `TYPE_NAME` deriva de `DEBUG` (`homologacao` / `producao`), salvo override em `local_settings.py`.
+- `OTEL_ENVIRONMENT` recebe `TYPE_NAME` e vai para `deployment.environment` (resource) e tag `env` do Loki.
+- Nome final: `<base>-<ambiente>-<octeto_ip>` (ex.: `InventarioWeb-homologacao-214`).
+
+---
+
+# Identificação da instância por IP
+
+Detectar IP local em `core/host_info.py` (ver rule 333 para implementação).
+Usar `core/settings_helpers.py` para `service_name()`, `loki_app_name()`, `host_name()`.
+
+---
+
+# Dependências Django
+
+```txt
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-exporter-otlp-proto-http
+opentelemetry-instrumentation-django
+opentelemetry-instrumentation-requests
+opentelemetry-instrumentation-logging
+python-logging-loki
+```
+
+Não incluir instrumentações FastAPI, httpx, sqlalchemy ou psycopg2 se o projeto não as usa.
+Spans de DB vêm do `DjangoInstrumentor`.
+
+---
+
+# Estrutura obrigatória
+
+```text
+core/
+  host_info.py
+  logging_config.py
+  telemetry.py
+  middleware.py
+  settings_helpers.py
+```
+
+Não espalhar código de OpenTelemetry em views, services ou models.
+
+---
+
+# core/logging_config.py
+
+- `LOG_FORMAT` com `otelTraceID`, `otelSpanID`, `otelServiceName`.
+- `get_logging_config()` / `setup_logging()` com handlers stdout + Loki.
+- Helpers: `log_for_status_code`, `log_http_exception`, `extract_response_status_code`.
+- Usar `core.settings_helpers` para tags Loki (Django settings não suporta `@property` nativo).
+
+---
+
+# Níveis de log por status HTTP
+
+| Situação | Nível |
+|----------|-------|
+| Resposta 2xx/3xx | `INFO` |
+| Resposta 4xx comum | `WARNING` |
+| Resposta 4xx crítica (401, 403) | `ERROR` |
+| Resposta 5xx | `ERROR` |
+| Exceção não tratada (`process_exception`) | `ERROR` |
+
+Aplicar em:
+- **Middleware** (`core/middleware.py`): log por requisição com `method`, `path`, `status`, `duration_ms`, `user_id`, `trace_id`, `span_id`.
+- **Integrações HTTP** (`requests`): `log_for_status_code` com status real — nunca `logger.exception` cego para todo 4xx.
+
+---
+
+# core/telemetry.py
+
+- `setup_base_telemetry()` — TracerProvider + Resource + `RequestsInstrumentor`.
+- `setup_logging_instrumentation()` — `LoggingInstrumentor` com `LOG_FORMAT`.
+- `instrument_django()` — `DjangoInstrumentor` (após `get_wsgi_application()`).
+- Flag `_observability_initialized` para evitar dupla inicialização no reload do dev server.
+
+---
+
+# Bootstrap em `setup/wsgi.py`
+
+Ordem crítica **antes** de `get_wsgi_application()`:
+
+```python
+setup_base_telemetry()           # 1) TracerProvider + Resource
+setup_logging_instrumentation()  # 2) trace_id/span_id nos LogRecords
+setup_logging()                  # 3) handlers stdout + Loki
+log_telemetry_status()           # 4) log de startup
+application = get_wsgi_application()
+instrument_django()              # 5) após settings carregado
+```
+
+---
+
+# Middleware Django
+
+Registrar em `MIDDLEWARE` **após** `AuthenticationMiddleware`:
+
+```python
+'core.middleware.RequestLoggingMiddleware',
+```
+
+`RequestLoggingMiddleware` usa `MiddlewareMixin` ou padrão `__call__`.
+`process_exception`: `logger.exception` para exceções não tratadas (equivalente ao handler global FastAPI).
+
+Cobertura automática de todas as rotas: admin, HTML, JsonResponse, downloads.
+
+---
+
+# Rotas de teste (gated)
+
+Somente com `ENABLE_TEST_ROUTES = True` em `inventario/urls.py`:
+
+- `GET /inventario/teste-erro-loki/` — levanta exceção.
+- `GET /inventario/telemetry-test/` — span manual + JSON ok.
+
+Nunca deixar rotas de teste ativas em produção.
+
+---
+
+# Integrações HTTP outbound
+
+Usar `RequestsInstrumentor` (em `setup_base_telemetry`) para spans automáticos.
+Nos services, usar `log_for_status_code` + `extract_response_status_code` em `requests.RequestException`.
+
+---
+
+# Validações obrigatórias
+
+1. `python manage.py runserver` sobe sem erro.
+2. Log de startup: `OpenTelemetry ativo | service=InventarioWeb-homologacao-XXX | ...`
+3. Logs de requisição com `trace_id`/`span_id` reais (não `0`).
+4. Rota inexistente → `WARNING` com status 404.
+5. Falha de push Loki/Tempo **não** derruba o Django.
+
+---
+
+# Regras de qualidade
+
+- Não duplicar `dictConfig` nem `LoggingInstrumentor`.
+- Não hardcodar nome da aplicação fora do `settings`.
+- Não usar `/v1/traces` no valor de `OTEL_EXPORTER_OTLP_ENDPOINT`.
+- Não usar `http://tempo:3200` na aplicação.
+- Não expor stack trace ao cliente em 500.
+- Não usar `logger.error` para 4xx rotineiros.
+- Views enxutas; middleware cobre logging de acesso — não decorar cada view.

@@ -1,5 +1,6 @@
 SECRET_KEY = ']s5n/RoBy<&r;f91C2C|1F"{SDJ!dr!("[)DvU#jzC6Gu.y">LozaG"{>A.te'
 DEBUG = True
+TYPE_NAME = 'producao'
 ALLOWED_HOSTS: list[str] = [
     'localhost',
     '127.0.0.1',
