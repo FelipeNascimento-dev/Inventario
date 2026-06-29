@@ -417,12 +417,12 @@ COPY . .
 
 EXPOSE 8000
 
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4", "--threads", "2", "--timeout", "60", "--max-requests", "1000", "--max-requests-jitter", "100"]
+CMD ["gunicorn", "setup.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4", "--threads", "2", "--timeout", "60", "--max-requests", "1000", "--max-requests-jitter", "100"]
 ```
 
 Atenção:
 
-- Trocar `config.wsgi:application` pelo módulo correto do projeto.
+- Trocar `setup.wsgi:application` pelo módulo WSGI correto do projeto (neste repositório: `setup.wsgi`).
 - Garantir que `gunicorn` esteja no `requirements.txt`.
 - Garantir que `requirements.txt` esteja em **UTF-8**; encoding UTF-16 quebra o `pip install` no build da imagem.
 - Garantir que `curl` exista no container para o healthcheck.
@@ -502,7 +502,7 @@ Observação:
 
 ---
 
-# 15. Stack base para Django
+# 15. Stack base para Django (Inventario GTN)
 
 Criar:
 
@@ -510,7 +510,9 @@ Criar:
 deploy/stack.yml
 ```
 
-Exemplo:
+O serviço **deve** declarar `command` com Gunicorn para manter o processo da aplicação no ar no Swarm (o `CMD` do Dockerfile sozinho pode ser omitido ou sobrescrito pelo deploy).
+
+Exemplo alinhado ao projeto **Inventario** (`setup.wsgi:application`):
 
 ```yaml
 version: "3.8"
@@ -520,7 +522,7 @@ services:
     image: ${IMAGE}
 
     command: >
-      gunicorn config.wsgi:application
+      gunicorn setup.wsgi:application
       --bind 0.0.0.0:8000
       --workers 4
       --threads 2
@@ -541,10 +543,20 @@ services:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE}
       DEBUG: ${DEBUG}
       SECRET_KEY: ${SECRET_KEY}
-      DATABASE_URL: ${DATABASE_URL}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS}
       CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS}
-      REDIS_URL: ${REDIS_URL}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      INVENTARIO_API_BASE_URL: ${INVENTARIO_API_BASE_URL}
+      TYPE_NAME: ${TYPE_NAME}
+      ENABLE_TEST_ROUTES: ${ENABLE_TEST_ROUTES}
+      OTEL_ENABLED: ${OTEL_ENABLED}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT}
+      LOKI_URL: ${LOKI_URL}
+      LOG_LEVEL: ${LOG_LEVEL}
 
     deploy:
       mode: replicated
@@ -581,13 +593,14 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
 networks:
   app_network:
     external: true
 ```
 
-Ajustar `config.wsgi:application` conforme o projeto.
+Em outros projetos Django, trocar `setup.wsgi:application` pelo módulo WSGI correto (ex.: `config.wsgi:application`). Manter o `command` com Gunicorn na stack.
 
 ---
 
@@ -924,7 +937,7 @@ Ao adaptar o projeto, o Cursor deve:
 6. Criar `.github/workflows/deploy-swarm.yml`.
 7. Adicionar dependências necessárias no `requirements.txt` (sempre **UTF-8**, fim de linha LF; evitar salvar como UTF-16 no Windows).
 8. Garantir que exista endpoint `/health/` para Django ou `/health` para FastAPI.
-9. Garantir que Gunicorn esteja configurado corretamente.
+9. Garantir que Gunicorn esteja configurado no `Dockerfile` **e** no `command` de `deploy/stack.yml`.
 10. Não commitar `.env` real.
 11. Não salvar uploads dentro do container.
 12. Não usar banco de dados dentro do container da aplicação.

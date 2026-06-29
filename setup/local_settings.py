@@ -4,6 +4,7 @@ TYPE_NAME = 'producao'
 ALLOWED_HOSTS: list[str] = [
     'localhost',
     '127.0.0.1',
+    '192.168.0.213'
     '192.168.0.214',
     '192.168.0.215',
     '192.168.0.216',
