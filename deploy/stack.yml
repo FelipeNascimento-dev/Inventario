@@ -59,7 +59,8 @@ services:
       update_config:
         parallelism: 1
         delay: 10s
-        order: start-first
+        # host-mode: start-first tenta subir o novo container antes de liberar a porta → conflito.
+        order: stop-first
         failure_action: rollback
 
       rollback_config:

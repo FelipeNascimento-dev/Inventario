@@ -282,18 +282,64 @@ docker stack ps inventario_gtn
 
 ### Deploy OK mas HTML/template não mudou
 
-Não é cache do Django. Verificar se a **imagem nas réplicas** contém o commit novo:
+Não é cache do Django. Verificar se **todas** as réplicas usam a **mesma tag**:
 
 ```bash
-docker service ps inventario_gtn_web --filter "desired-state=running" --format '{{.Image}}'
+docker service ps inventario_gtn_web --filter "desired-state=running" --format '{{.Node}} {{.Image}}'
+```
+
+Se aparecerem **duas tags** (ex.: `98809def...` e `455ba54...`), o HAProxy alterna versão antiga e nova — parece que “não mudou” ou muda só às vezes.
+
+Correção imediata (substitua pelo SHA do commit desejado):
+
+```bash
+bash deploy/scripts/force-inventario-gtn-image-rollout.sh 455ba54c60ec94b92c409b469be84f9e8e9c49e2
+```
+
+**Importante:** rodar no **manager do Swarm** (`python-app-01`), não em outro host. O script usa `stop-first` (porta `mode: host` não suporta `start-first`).
+
+Diagnóstico do arquivo no container:
+
+```bash
 docker exec $(docker ps -q --filter "name=inventario_gtn_web" | head -1) \
   head -20 /app/inventario/templates/inventario/index.html
 ```
 
-Se o arquivo no container estiver antigo: cache de build no runner self-hosted (`COPY . .` sem `CACHE_BUST`) ou pull falho nos nós (`Rejected` / `No such image`). O workflow atual faz `docker pull` + `CACHE_BUST=${{ github.sha }}` — ver seção 17 em `docs/contexto_infra_swarm_cursor.md`.
+Se o arquivo no container estiver antigo: cache de build no runner (`CACHE_BUST`) ou pull falho nos nós. Ver seção 17 em `docs/contexto_infra_swarm_cursor.md`.
 
 ---
 
-## Limitação conhecida (mídia local)
+## 10. Troubleshooting — rollback `host-mode port already in use` / `No such image`
+
+### Sintoma
+
+```text
+No such image: ghcr.io/c-trends-bpo/inventario:<sha>
+no suitable node (host-mode port already in use on 3 nodes)
+rollback: update rolled back due to failure...
+```
+
+### Causas
+
+| Erro | Causa |
+|------|--------|
+| `No such image` | Tag inexistente no GHCR, ou nós do Swarm sem credencial para pull (`docker login ghcr.io` + `--with-registry-auth`) |
+| `port already in use` | `update_config.order: start-first` com porta **`mode: host`** — novo container sobe antes de liberar a porta 8000 no nó |
+
+### Correção
+
+1. Confirmar que a tag existe: `docker pull ghcr.io/c-trends-bpo/inventario:<sha>` no **manager**.
+2. `deploy/stack.yml` deve usar **`order: stop-first`** no `update_config` (já corrigido no repositório).
+3. Forçar rollout no manager:
+
+```bash
+bash deploy/scripts/force-inventario-gtn-image-rollout.sh <sha>
+```
+
+4. Se `No such image` persistir nos workers: em cada `python-app-0X`, executar uma vez `docker login ghcr.io` (PAT com `read:packages`) ou garantir pacote GHCR **internal** vinculado ao org.
+
+Com `stop-first`, há ~30–60s de indisponibilidade **por nó** durante o update; os outros 2 nós continuam atendendo via HAProxy.
+
+---
 
 Com 3 réplicas e sem volume compartilhado, arquivos gravados em `MEDIA_ROOT` (ex.: extração diária de auditoria) existem apenas na réplica que gerou o arquivo. Downloads podem falhar se o HAProxy encaminhar para outro nó. Aceito nesta fase — migração prevista para API/Firebase.

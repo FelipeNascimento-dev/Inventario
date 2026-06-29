@@ -81,6 +81,8 @@ Motivo:
 - O health check do HAProxy fica mais confiável.
 - Evita dupla camada de balanceamento: HAProxy + ingress routing mesh.
 
+**Rolling update:** com `mode: host`, usar `deploy.update_config.order: stop-first`. Com `start-first`, o Swarm tenta subir o novo container antes de parar o antigo no mesmo nó e a porta publicada já está em uso → `host-mode port already in use` e rollback.
+
 ---
 
 # 4. Rede overlay padrão
@@ -670,7 +672,7 @@ services:
       update_config:
         parallelism: 1
         delay: 10s
-        order: start-first
+        order: stop-first
         failure_action: rollback
 
       rollback_config:
@@ -760,7 +762,7 @@ services:
       update_config:
         parallelism: 1
         delay: 10s
-        order: start-first
+        order: stop-first
         failure_action: rollback
 
       rollback_config:
@@ -926,7 +928,7 @@ para o nome real da aplicação.
 
 ### Passo `Wait for replicas` — parâmetros e armadilhas
 
-Com `replicas: 3`, `parallelism: 1`, `order: start-first` e healthcheck com `start_period: 40s`, o rolling update pode levar **mais de 5 minutos** até `3/3` estável. Timeout de **300s é curto** — usar **600s** (10 min).
+Com `replicas: 3`, `parallelism: 1`, `order: stop-first` (obrigatório com **porta `mode: host`**) e healthcheck com `start_period: 40s`, o rolling update pode levar **vários minutos** até `3/3` na mesma tag. Timeout de **300s é curto** — usar **600s** (10 min).
 
 | Parâmetro | Valor recomendado | Motivo |
 |-----------|-------------------|--------|
@@ -940,6 +942,12 @@ Com `replicas: 3`, `parallelism: 1`, `order: start-first` e healthcheck com `sta
 - `docker service ps` contando tasks com `CurrentState` = `Running`
 
 **Falso negativo no Actions:** o job pode falhar em `Wait for replicas` mesmo com a aplicação já respondendo via HAProxy — o `docker stack deploy` já aplicou a stack; validar com `docker service ls | grep <stack>` no servidor. Re-run do workflow ou aguardar estabilização costuma resolver.
+
+**Réplicas em tags diferentes (HTML “às vezes muda”):** se `docker service ps ... --format '{{.Image}}'` listar **mais de uma tag** entre tasks `Running`, o rolling update não terminou — HAProxy alterna nó antigo/novo. O wait do workflow exige **3/3 na mesma tag** do commit. Correção manual no servidor:
+
+```bash
+bash deploy/scripts/force-inventario-gtn-image-rollout.sh <sha-do-commit>
+```
 
 **Referência:** `.github/workflows/deploy-swarm.yml` (Inventario GTN).
 
@@ -1180,10 +1188,11 @@ Ao adaptar o projeto, o Cursor deve:
 21. No Swarm, definir `OTEL_APPEND_IP_SUFFIX=False` no `.env` do servidor (seção 22).
 22. Ajustar `ALLOWED_HOSTS`, `CSRF_TRUSTED_ORIGINS` e CORS conforme domínio real. **Sempre incluir `localhost,127.0.0.1`** no início de `ALLOWED_HOSTS` para healthchecks Docker/HAProxy internos; evitar typo `ALLOWED_HOSTS=ALLOWED_HOSTS=...`.
 23. Validar que o projeto inicia sem depender de arquivos locais não versionados.
-24. No workflow de deploy, incluir passo **Wait for replicas** com timeout **≥ 600s** para stacks com 3 réplicas e rolling `start-first` (seção 17).
-25. No HAProxy, **não remover prefixo de path** ao encaminhar para Django montado em subpath (ex.: `/inventario/`); alinhar `LOGIN_URL` com o prefixo real (seção 20).
+24. No workflow de deploy, incluir passo **Wait for replicas** com timeout **≥ 600s** e validação de **mesma tag** nas 3 réplicas (seção 17).
+25. Com porta **`mode: host`**, usar `update_config.order: stop-first` — `start-first` causa `host-mode port already in use` (seção 15 / stack).
 26. Após `build-push`, executar **`docker pull`** da tag do commit antes de migrations e `stack deploy` (seção 17).
 27. Em runner self-hosted, usar **`CACHE_BUST=${{ github.sha }}`** no build para não reutilizar layer `COPY . .` com código antigo (seção 12 e 17).
+28. No HAProxy, **não remover prefixo de path** ao encaminhar para Django montado em subpath (ex.: `/inventario/`); alinhar `LOGIN_URL` com o prefixo real (seção 20).
 
 ---
 

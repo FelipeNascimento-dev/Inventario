@@ -122,6 +122,11 @@ jobs:
             -c "${STACK_FILE}" \
             "${STACK_NAME}"
 
+          docker stack deploy \
+            --with-registry-auth \
+            -c "${STACK_FILE}" \
+            "${STACK_NAME}"
+
           echo "Imagem declarada no serviço:"
           docker service inspect "${STACK_NAME}_web" --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}'
 
@@ -138,6 +143,7 @@ jobs:
           STABLE_REQUIRED=2
           ELAPSED=0
           STABLE_CHECKS=0
+          IMAGE_TAG="${IMAGE##*:}"
 
           count_running_tasks() {
             docker service ps "${SERVICE}" \
@@ -146,23 +152,45 @@ jobs:
               | awk '$1 == "Running" { count++ } END { print count + 0 }'
           }
 
+          count_running_expected_image() {
+            docker service ps "${SERVICE}" \
+              --filter "desired-state=running" \
+              --format '{{.Image}}' 2>/dev/null \
+              | awk -v tag="${IMAGE_TAG}" '$0 ~ tag { count++ } END { print count + 0 }'
+          }
+
+          list_running_images() {
+            docker service ps "${SERVICE}" \
+              --filter "desired-state=running" \
+              --format '{{.Node}} {{.Image}}' 2>/dev/null \
+              | sort -u
+          }
+
           get_replicas_line() {
             docker service ls --format '{{.Name}} {{.Replicas}}' \
               | awk -v svc="${SERVICE}" '$1 == svc { print $2; exit }'
           }
 
-          echo "Aguardando ${DESIRED}/${DESIRED} réplicas estáveis em ${SERVICE} (timeout ${TIMEOUT}s)..."
+          echo "Aguardando ${DESIRED}/${DESIRED} réplicas na imagem ${IMAGE} (timeout ${TIMEOUT}s)..."
 
           while [[ "${ELAPSED}" -lt "${TIMEOUT}" ]]; do
             REPLICAS_LINE="$(get_replicas_line)"
             RUNNING_COUNT="$(count_running_tasks)"
-            echo "  ${ELAPSED}s — tasks Running: ${RUNNING_COUNT}/${DESIRED} | service ls: ${REPLICAS_LINE:-ausente}"
+            MATCHING_IMAGE="$(count_running_expected_image)"
+            echo "  ${ELAPSED}s — Running: ${RUNNING_COUNT}/${DESIRED} | tag ${IMAGE_TAG}: ${MATCHING_IMAGE}/${DESIRED} | service ls: ${REPLICAS_LINE:-ausente}"
+
+            if [[ "${MATCHING_IMAGE}" -ne "${DESIRED}" ]] && [[ "${RUNNING_COUNT}" -eq "${DESIRED}" ]]; then
+              echo "  Réplicas em versões diferentes:"
+              list_running_images | sed 's/^/    /'
+            fi
 
             if [[ "${RUNNING_COUNT}" -eq "${DESIRED}" ]] \
+              && [[ "${MATCHING_IMAGE}" -eq "${DESIRED}" ]] \
               && [[ "${REPLICAS_LINE}" =~ ^${DESIRED}/${DESIRED} ]]; then
               STABLE_CHECKS=$((STABLE_CHECKS + 1))
               if [[ "${STABLE_CHECKS}" -ge "${STABLE_REQUIRED}" ]]; then
-                echo "Serviço estável: ${REPLICAS_LINE} (${STABLE_REQUIRED} checagens consecutivas OK)"
+                echo "Serviço estável na imagem ${IMAGE}"
+                list_running_images
                 docker stack services "${STACK_NAME}"
                 docker stack ps "${STACK_NAME}" --no-trunc
                 exit 0
@@ -175,7 +203,9 @@ jobs:
             ELAPSED=$((ELAPSED + INTERVAL))
           done
 
-          echo "Timeout: serviço não atingiu ${DESIRED}/${DESIRED} réplicas estáveis." >&2
+          echo "Timeout: nem todas as réplicas estão Running na imagem ${IMAGE}" >&2
+          echo "Imagens em execução:" >&2
+          list_running_images >&2
           docker stack services "${STACK_NAME}" || true
           docker service ps "${SERVICE}" --no-trunc
           docker service logs "${SERVICE}" --tail 100 2>&1 || true
