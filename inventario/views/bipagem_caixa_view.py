@@ -182,7 +182,12 @@ def bipagem(request, lote_id, caixa_id):
         if not session_estado:
             form = BipagemForm(initial={'estado': '', 'modelo': ''})
         elif not session_modelo:
-            form = BipagemForm(initial={'modelo': ''})
+            initial_modelo = (
+                BipagemForm.MODELO_OUTROS
+                if session_estado in BipagemForm.ESTADOS_MODELO_OUTROS
+                else ''
+            )
+            form = BipagemForm(initial={'modelo': initial_modelo})
         else:
             form = BipagemForm(initial={
                 'modelo': session_modelo,

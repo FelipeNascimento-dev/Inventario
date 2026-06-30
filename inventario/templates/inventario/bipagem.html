@@ -425,6 +425,30 @@
                 window.location.href = window.location.pathname;
             });
         }
+
+        const MODELO_OUTROS = 'OUTROS';
+        const ESTADOS_MODELO_OUTROS = ['OBSOLETO', 'SUCATA', 'REVERSA'];
+        const estadoInput = document.getElementById('estado-input');
+        const modeloInput = document.getElementById('modelo-input');
+        const estadoHidden = document.querySelector('input[type="hidden"][name="estado"]');
+
+        function aplicarModeloOutrosPorEstado(estadoVal) {
+            if (!modeloInput) {
+                return;
+            }
+            if (ESTADOS_MODELO_OUTROS.includes(estadoVal)) {
+                modeloInput.value = MODELO_OUTROS;
+            } else if (modeloInput.value === MODELO_OUTROS) {
+                modeloInput.value = '';
+            }
+        }
+
+        if (estadoInput && modeloInput) {
+            estadoInput.addEventListener('change', () => aplicarModeloOutrosPorEstado(estadoInput.value));
+            aplicarModeloOutrosPorEstado(estadoInput.value);
+        } else if (estadoHidden && modeloInput) {
+            aplicarModeloOutrosPorEstado(estadoHidden.value);
+        }
     });
 </script>
 

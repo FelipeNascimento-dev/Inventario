@@ -50,6 +50,8 @@ class Bipagem(models.Model):
         ('BAD', 'BAD'),
         ('TRIAGEM', 'TRIAGEM'),
         ('OBSOLETO', 'OBSOLETO'),
+        ('SUCATA', 'SUCATA'),
+        ('REVERSA', 'REVERSA'),
         ('KIT GOOD', 'KIT GOOD'),
     ]
     estado = models.CharField(max_length=100, choices=ESTADO_CHOICES, blank=True, null=True)
