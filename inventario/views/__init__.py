@@ -10,11 +10,13 @@ from .bipagem_caixa_view import bipagem, editar_serial, excluir_serial, inserir_
 from .validacao_view import validar_lote_view, validar_serial, finalizar_lote_view
 from .acompanhamento_view import (
     acompanhamento_dash,
+    acompanhamento_locais_dash,
     acompanhamento_api_lotes,
     acompanhamento_api_resumo,
     acompanhamento_api_quantidades,
     acompanhamento_api_contagem_usuario,
     acompanhamento_api_lote_detalhe,
+    acompanhamento_api_status_locais,
 )
 from .download_extracao_pdf import (
     download_extracao_pdf,

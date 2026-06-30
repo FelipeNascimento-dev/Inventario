@@ -3,23 +3,44 @@
 //localStorage.clear();
 
 document.addEventListener('DOMContentLoaded', function () {
-  const dropdown = document.querySelector('.dropdown');
-  if (dropdown) {
+  document.querySelectorAll('.dropdown').forEach((dropdown) => {
     const dropbtn = dropdown.querySelector('.dropbtn');
     const dropdownContent = dropdown.querySelector('.dropdown-content');
+    if (!dropbtn || !dropdownContent) {
+      return;
+    }
 
     function closeDropdown() {
       dropdown.classList.remove('open');
       dropbtn.classList.remove('hover-active');
+      if (dropbtn.tagName === 'BUTTON') {
+        dropbtn.setAttribute('aria-expanded', 'false');
+      }
     }
 
     dropbtn.addEventListener('click', function (e) {
+      e.preventDefault();
       e.stopPropagation();
       const isOpen = dropdown.classList.contains('open');
+      document.querySelectorAll('.dropdown.open').forEach((other) => {
+        if (other !== dropdown) {
+          other.classList.remove('open');
+          const otherBtn = other.querySelector('.dropbtn');
+          if (otherBtn) {
+            otherBtn.classList.remove('hover-active');
+            if (otherBtn.tagName === 'BUTTON') {
+              otherBtn.setAttribute('aria-expanded', 'false');
+            }
+          }
+        }
+      });
       closeDropdown();
       if (!isOpen) {
         dropdown.classList.add('open');
         dropbtn.classList.add('hover-active');
+        if (dropbtn.tagName === 'BUTTON') {
+          dropbtn.setAttribute('aria-expanded', 'true');
+        }
       }
     });
 
@@ -28,7 +49,7 @@ document.addEventListener('DOMContentLoaded', function () {
         closeDropdown();
       }
     });
-  }
+  });
 });
 
 // submenu dropdown

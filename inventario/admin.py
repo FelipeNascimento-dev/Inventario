@@ -1,6 +1,11 @@
 from django.contrib import admin
 from django import forms
-from .models import LoteBipagem, PontoAtendimentoInfo, ExtracaoDiariaAuditoria
+from .models import (
+    CronogramaInventarioLocal,
+    ExtracaoDiariaAuditoria,
+    LoteBipagem,
+    PontoAtendimentoInfo,
+)
 
 class PontoAtendimentoInfoAdminForm(forms.ModelForm):
     limite_opcoes = [
@@ -30,6 +35,22 @@ class ExtracaoDiariaAuditoriaAdmin(admin.ModelAdmin):
     list_filter = ('data_referencia',)
     search_fields = ('group__name',)
     readonly_fields = ('gerado_em',)
+
+@admin.register(CronogramaInventarioLocal)
+class CronogramaInventarioLocalAdmin(admin.ModelAdmin):
+    list_display = (
+        "nome_local",
+        "group",
+        "data_inicio",
+        "data_fim",
+        "horario_inicio",
+        "horario_fim",
+        "ativo",
+    )
+    list_filter = ("ativo", "data_inicio", "data_fim")
+    search_fields = ("nome_local", "group__name")
+    list_editable = ("ativo",)
+
 
 @admin.register(LoteBipagem)
 class LoteBipagemAdmin(admin.ModelAdmin):

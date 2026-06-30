@@ -3,6 +3,7 @@ from django.contrib.auth.models import Group
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 
+from inventario.services.acompanhamento_locais_service import get_status_locais_inventario
 from inventario.services.inventario_api_client import (
     InventarioApiError,
     get_contagem_por_usuario,
@@ -61,6 +62,14 @@ def _proxy_json(request, fetcher):
 
 
 @login_required(login_url='inventario:login')
+def acompanhamento_locais_dash(request):
+    if not _usuario_pode_ver_dashboard(request.user):
+        return redirect('inventario:index')
+
+    return render(request, 'inventario/acompanhamento_locais.html')
+
+
+@login_required(login_url='inventario:login')
 def acompanhamento_api_lotes(request):
     params = {key: value for key, value in request.GET.items() if value}
     return _proxy_json(request, lambda: get_lotes(params))
@@ -83,6 +92,13 @@ def acompanhamento_api_quantidades(request):
 def acompanhamento_api_contagem_usuario(request):
     incluir = request.GET.get('incluir_seriais', '').lower() in ('1', 'true', 'yes')
     return _proxy_json(request, lambda: get_contagem_por_usuario(incluir))
+
+
+@login_required(login_url='inventario:login')
+def acompanhamento_api_status_locais(request):
+    if not _usuario_pode_ver_dashboard(request.user):
+        return _negar_acesso(request)
+    return JsonResponse(get_status_locais_inventario())
 
 
 @login_required(login_url='inventario:login')

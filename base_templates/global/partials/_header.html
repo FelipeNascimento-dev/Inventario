@@ -1,7 +1,5 @@
 {% load static %}
 
-{% load static %}
-
 <div class="navbar">
 
     <a href="{% url 'inventario:index' %}">
@@ -11,9 +9,23 @@
     <div class="nav-links">
         <a href="{% url 'inventario:index' %}">Home</a>
 
-        {% if is_visualizador_master or is_gerente_total %}
-        <div class="dropdown">
-            <a class="dropbtn" href="{% url 'inventario:acompanhamento' %}">Dashboard</a>
+        {% if pode_ver_dashboard %}
+        <div class="dropdown nav-dashboard-dropdown">
+            <button type="button" class="dropbtn{% if dash_secao %} hover-active{% endif %}" aria-haspopup="true" aria-expanded="false">
+                Dashboard <i class="fa-solid fa-chevron-down nav-chevron" aria-hidden="true"></i>
+            </button>
+            <div class="dropdown-content nav-dashboard-menu">
+                <a href="{% url 'inventario:acompanhamento' %}"
+                   class="nav-dashboard-item{% if dash_secao == 'lotes' %} active{% endif %}">
+                    <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+                    Acompanhamento de Lotes
+                </a>
+                <a href="{% url 'inventario:acompanhamento_locais' %}"
+                   class="nav-dashboard-item{% if dash_secao == 'locais' %} active{% endif %}">
+                    <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+                    Status dos Locais
+                </a>
+            </div>
         </div>
         <div class="dropdown">
             <a class="dropbtn" href="{% url 'inventario:relatorios' %}">Relatórios</a>

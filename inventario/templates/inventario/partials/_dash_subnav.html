@@ -1,0 +1,14 @@
+{% if pode_ver_dashboard %}
+<nav class="dash-subnav" aria-label="Seções do dashboard">
+    <a href="{% url 'inventario:acompanhamento' %}"
+       class="dash-subnav-link{% if dash_secao == 'lotes' %} active{% endif %}">
+        <i class="fa-solid fa-chart-line" aria-hidden="true"></i>
+        Acompanhamento de Lotes
+    </a>
+    <a href="{% url 'inventario:acompanhamento_locais' %}"
+       class="dash-subnav-link{% if dash_secao == 'locais' %} active{% endif %}">
+        <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+        Status dos Locais
+    </a>
+</nav>
+{% endif %}

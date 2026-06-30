@@ -5,9 +5,9 @@ from .views import UserLoginView
 from .views import RegisterView
 from .views import index, logout_confirm_view, logout_view, criar_lote_view, lote, \
 iniciar_caixa_redirect, bipagem, inserir_serial_ajax, validar_lote_view, validar_serial, finalizar_lote_view, \
-acompanhamento_dash, acompanhamento_api_lotes, acompanhamento_api_resumo, \
+acompanhamento_dash, acompanhamento_locais_dash, acompanhamento_api_lotes, acompanhamento_api_resumo, \
 acompanhamento_api_quantidades, acompanhamento_api_contagem_usuario, \
-acompanhamento_api_lote_detalhe, download_extracao_pdf, editar_serial, excluir_serial, \
+acompanhamento_api_lote_detalhe, acompanhamento_api_status_locais, download_extracao_pdf, editar_serial, excluir_serial, \
 relatorios_view, download_extracao_csv, download_extracao_agendada
 
 
@@ -28,11 +28,13 @@ urlpatterns = [
     path('lote/<int:lote_id>/validar/serial/', validar_serial, name='validar_serial'),
     path('lote/<int:lote_id>/fechar/', finalizar_lote_view, name='fechar_lote'),
     path('acompanhamento/', acompanhamento_dash, name='acompanhamento'),
+    path('acompanhamento/locais/', acompanhamento_locais_dash, name='acompanhamento_locais'),
     path('acompanhamento/api/lotes/', acompanhamento_api_lotes, name='acompanhamento_api_lotes'),
     path('acompanhamento/api/lotes/<int:lote_id>/', acompanhamento_api_lote_detalhe, name='acompanhamento_api_lote_detalhe'),
     path('acompanhamento/api/resumo/', acompanhamento_api_resumo, name='acompanhamento_api_resumo'),
     path('acompanhamento/api/quantidades/', acompanhamento_api_quantidades, name='acompanhamento_api_quantidades'),
     path('acompanhamento/api/contagem-usuario/', acompanhamento_api_contagem_usuario, name='acompanhamento_api_contagem_usuario'),
+    path('acompanhamento/api/status-locais/', acompanhamento_api_status_locais, name='acompanhamento_api_status_locais'),
     path('download-extracao/', download_extracao_pdf, name='download_extracao'),
     path('serial/<int:serial_id>/editar/', editar_serial, name='editar_serial'),
     path('serial/<int:serial_id>/excluir/', excluir_serial, name='excluir_serial'),

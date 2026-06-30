@@ -1,0 +1,76 @@
+{% extends 'global/base.html' %}
+{% load static %}
+
+{% block content %}
+
+<div class="dash-page">
+    {% include 'inventario/partials/_dash_subnav.html' %}
+
+    <div class="dash-header">
+        <h1><i class="fa-solid fa-location-dot"></i> Status dos Locais</h1>
+        <div class="dash-header-actions">
+            <button type="button" id="btn-refresh" class="dash-btn dash-btn-secondary">
+                <i class="fa-solid fa-rotate"></i> Atualizar
+            </button>
+        </div>
+    </div>
+
+    <div id="dash-alert" class="dash-alert dash-alert-error" hidden></div>
+
+    <p class="dash-page-desc">
+        Com base no cronograma do inventário e nas bipagens registradas por PA.
+    </p>
+
+    <div class="dash-locais-kpi-grid">
+        <div class="dash-locais-kpi dash-locais-kpi-nao-iniciado">
+            <div class="label">Ainda não iniciaram</div>
+            <div class="value" id="kpi-locais-nao-iniciados">—</div>
+            <div class="sub">Nenhuma bipagem registrada</div>
+        </div>
+        <div class="dash-locais-kpi dash-locais-kpi-andamento">
+            <div class="label">Em andamento</div>
+            <div class="value" id="kpi-locais-andamento">—</div>
+            <div class="sub">Ao menos uma bipagem</div>
+        </div>
+        <div class="dash-locais-kpi dash-locais-kpi-finalizado">
+            <div class="label">Já finalizaram</div>
+            <div class="value" id="kpi-locais-finalizados">—</div>
+            <div class="sub">Prazo do cronograma encerrado</div>
+        </div>
+    </div>
+
+    <div class="dash-locais-columns">
+        <div class="dash-locais-card">
+            <h3>Ainda não iniciaram</h3>
+            <ul class="dash-locais-list" id="lista-locais-nao-iniciados">
+                <li class="dash-locais-empty">Carregando...</li>
+            </ul>
+        </div>
+        <div class="dash-locais-card">
+            <h3>Em andamento</h3>
+            <ul class="dash-locais-list" id="lista-locais-andamento">
+                <li class="dash-locais-empty">Carregando...</li>
+            </ul>
+        </div>
+        <div class="dash-locais-card">
+            <h3>Já finalizaram</h3>
+            <ul class="dash-locais-list" id="lista-locais-finalizados">
+                <li class="dash-locais-empty">Carregando...</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div id="dash-loading" class="dash-loading-overlay">
+    <div class="dash-spinner"></div>
+</div>
+
+<script>
+    window.ACOMPANHAMENTO_LOCAIS_CONFIG = {
+        endpoints: {
+            statusLocais: "{% url 'inventario:acompanhamento_api_status_locais' %}",
+        },
+    };
+</script>
+<script src="{% static 'global/javascript/acompanhamento_locais.js' %}"></script>
+{% endblock %}

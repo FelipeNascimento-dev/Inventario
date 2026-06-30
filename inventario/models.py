@@ -102,6 +102,32 @@ class ExtracaoDiariaAuditoria(models.Model):
         return f"{self.group.name} - {self.data_referencia:%d/%m/%Y}"
 
 
+class CronogramaInventarioLocal(models.Model):
+    nome_local = models.CharField(max_length=255, verbose_name="Local")
+    group = models.ForeignKey(
+        Group,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="cronogramas_inventario",
+        verbose_name="Grupo (PA)",
+        help_text="Vincule ao grupo INV_PA correspondente. Se vazio, tenta resolver pelo nome do local.",
+    )
+    data_inicio = models.DateField(verbose_name="Data início")
+    data_fim = models.DateField(verbose_name="Data fim")
+    horario_inicio = models.TimeField(verbose_name="Horário início")
+    horario_fim = models.TimeField(verbose_name="Horário fim")
+    ativo = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Cronograma de inventário por local"
+        verbose_name_plural = "Cronogramas de inventário por local"
+        ordering = ["data_inicio", "nome_local"]
+
+    def __str__(self):
+        return f"{self.nome_local} ({self.data_inicio:%d/%m/%Y} – {self.data_fim:%d/%m/%Y})"
+
+
 class InventarioDadosImportados(models.Model):
     serial = models.CharField(max_length=100, primary_key=True)
     modelo = models.CharField(max_length=200)
